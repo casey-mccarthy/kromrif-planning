@@ -11,7 +11,7 @@ This document outlines the requirements for migrating the existing EQ DKP Plus P
 The existing EQ DKP Plus system is a comprehensive PHP-based application that manages:
 - User accounts and authentication
 - Guild member/character roster
-- DKP point tracking with multiple pools
+- DKP point tracking with single pool system
 - Event and raid management
 - Item distribution and point expenditure
 - Complex point adjustment and calculation systems
@@ -35,7 +35,8 @@ This system will serve as the **single source of truth** for:
 - Discord role synchronization data
 
 ### 2.4 Point Allocation Architecture
-**Fundamental Design**: Points are awarded to **Discord users** (not characters) to enable flexible character reassignment:
+**Fundamental Design**: Points are awarded to **Discord users** (not characters) with a single DKP pool system to enable flexible character reassignment:
+- Single DKP pool for all guild activities (no multiple pools)
 - Raid attendance data parsed by character names
 - Points awarded to the Django User account owning that character
 - Characters can be reassigned between users without point transfer complexity
@@ -66,7 +67,7 @@ This system will serve as the **single source of truth** for:
   - Discord avatar URL (from allauth extra_data)
   - Discord email (from OAuth scope, stored in User.email)
 - **Role Group System (single CharField with choices):**
-  - officer, recruiter, developer, member, applicant, guest
+  - developer, officer, recruiter, member, applicant, guest (in order of highest to lowest permissions)
   - Single role group per user (hierarchical permissions via Django groups)
 - **API Key Management via DRF Token + allauth integration:**
   - Personal API keys automatically generated when Discord account is linked
@@ -91,12 +92,12 @@ This system will serve as the **single source of truth** for:
 #### 3.2.2 Character Attributes
 - Character name (CharField, required, unique)
 - Character class and level (CharField and PositiveIntegerField)
-- Character rank within guild (ForeignKey to Rank model, synchronized with Discord roles)
+- Character rank within guild (ForeignKey to Rank model)
 - Character status (Django's is_active field + custom status choices)
 - Association with Django User account (ForeignKey)
 - Main/Alt character relationship (self-referencing ForeignKey)
 - Guild join date and rank history (auto_now_add timestamps + history model)
-- Discord role synchronization metadata (separate DiscordRoleMapping model)
+- **Note**: Discord roles are static and managed externally (no Discord role models needed)
 
 ### 3.3 Guild Roster Management
 **Priority: High**
@@ -117,17 +118,22 @@ This system will serve as the **single source of truth** for:
 
 #### 3.4.1 User-Based Point Tracking
 - **Points awarded to Django Users, not characters**
-- Current point totals per user per DKP pool (UserPointsSummary model)
-- Point earning history (RaidAttendance model with character name snapshots)
-- Point spending history (LootDistribution model with character attribution)
-- Point adjustments (PointAdjustment model linked to users)
+- **Single DKP pool system** (no multiple pools)
+- Current point totals per user (UserPointsSummary model)
+- Point earning history via multiple sources:
+  - Raid attendance (RaidAttendance model with character name snapshots)
+  - Bonus assignments (PointAdjustment model with bonus type)
+  - Guild task completion (PointAdjustment model with task type: track targets, farm items, level characters, etc.)
+- Point spending/loss history:
+  - Item purchases (LootDistribution model with character attribution)
+  - Officer punishments (PointAdjustment model with penalty type)
 
 #### 3.4.2 Point Calculations
 - Real-time point balance calculation per user (model properties + Django aggregation)
 - Historical point tracking with character attribution (foreign keys to snapshots)
-- Support for multiple DKP pools per user (separate DKPPool model)
+- **Single DKP pool system** (simplified model without multiple pools)
 - Point decay mechanisms (optional, via Django Celery tasks)
-- **Simplified queries**: Django ORM handles user-based aggregation efficiently
+- **Simplified queries**: Django ORM handles user-based aggregation efficiently with single pool
 
 #### 3.4.3 Character Reassignment Impact
 - Character transfers don't require point migration (points stay with User)
@@ -146,7 +152,6 @@ This system will serve as the **single source of truth** for:
 
 #### 3.5.2 Event Configuration
 - Default point awards per event type (DecimalField)
-- Event-specific item pools (ManyToManyField or through models)
 - Event difficulty modifiers (DecimalField or IntegerField)
 
 ### 3.6 Raid Management
@@ -180,17 +185,16 @@ This system will serve as the **single source of truth** for:
 - **No fixed point costs** - all items awarded via bidding (no price field)
 - Historical bidding data for reference pricing (BidHistory model)
 
-#### 3.7.2 Dynamic Bidding System
-- **In-game item drops trigger bidding periods** via Discord bot API calls
-- Players bid up to their current DKP balance (validated in DRF serializers)
-- **Discord bot parses game chat** for bid commands
-- Real-time bid tracking and validation (Django models + DRF APIs)
-- Bid closure and winner determination (Django model methods)
-- **Discord bot submits final results** via DRF API endpoints:
+#### 3.7.2 In-Game Bidding System
+- **All bidding occurs in-game only** (no web-based bidding interface)
+- **Discord bot monitors game chat** for bid commands and manages auctions
+- **Discord bot determines winner and final bid amount in-game**
+- **Discord bot submits final bidding results** via DRF API endpoints:
   - Django User lookup by Discord ID
   - Item name (CharField)
   - Winning bid amount (DecimalField)
   - Character name context (CharField snapshot)
+  - Raid context (ForeignKey to Raid)
 
 #### 3.7.3 Loot Distribution Processing
 - **DRF API receives bid results from Discord bot**
@@ -203,7 +207,14 @@ This system will serve as the **single source of truth** for:
 **Priority: Medium**
 
 #### 3.8.1 Manual Adjustments
-- **Admin ability to add/subtract points from Django User accounts** via Django admin
+- **Officer/Admin ability to add/subtract points from Django User accounts** via Django admin
+- **Point earning methods**:
+  - Raid attendance (automatic via RaidAttendance model)
+  - Bonus assignments (manual via PointAdjustment with bonus type)
+  - Guild task completion (manual via PointAdjustment: track targets, farm items, level characters, etc.)
+- **Point loss methods**:
+  - Item purchases (automatic via LootDistribution model)
+  - Officer punishments (manual via PointAdjustment with penalty type)
 - Adjustment reasons and notes (CharField and TextField)
 - Adjustment history and audit trail (PointAdjustment model with timestamps)
 - Bulk adjustment capabilities (Django admin actions)
@@ -218,12 +229,12 @@ This system will serve as the **single source of truth** for:
 ### 3.9 Discord Integration
 **Priority: High**
 
-#### 3.9.1 Authoritative Role Management
-- System serves as single source of truth for guild roles (Django models)
-- Automated Discord role synchronization via Discord bot API (DRF endpoints)
-- Role hierarchy mapping (DiscordRoleMapping model linking Ranks to Discord roles)
+#### 3.9.1 Member Status Management
+- System serves as single source of truth for guild member status (Django User model)
 - Member status change notifications to Discord (Django signals + webhook calls)
-- Bulk role updates for rank changes (Django admin actions + batch API calls)
+- **Discord roles are static and managed externally** (no role synchronization needed)
+- Member linking and unlinking (Django User to Discord ID association)
+- Bulk member status updates (Django admin actions)
 
 #### 3.9.2 Discord Bot Bidding Integration
 - **Real-time DKP balance queries** for bid validation (DRF API endpoints)
@@ -234,18 +245,18 @@ This system will serve as the **single source of truth** for:
 - **Bidding history tracking** for audit and analytics (BidHistory model)
 
 #### 3.9.3 Discord Bot API Endpoints
-- DRF API endpoints for current roster and role mappings
+- DRF API endpoints for current roster and member status
 - Webhook notifications for member status changes (Django signals + requests)
 - Authentication for Discord bot access via DRF Token Authentication
-- Role assignment audit logging (DiscordSyncLog model)
+- Member status change audit logging (custom logging model)
 - Error handling and retry mechanisms (Django-RQ or Celery)
 - **Bidding system API access** with extended permissions (custom DRF permissions)
 
 #### 3.9.4 Member Linking
 - Discord ID association with Django User accounts (required field)
 - Verification process for Discord-to-character linking (custom DRF endpoints)
-- Automatic role assignment upon character approval (Django signals)
-- Role removal upon character deactivation (Django signals)
+- Member status updates upon character approval (Django signals)
+- Member status updates upon character deactivation (Django signals)
 - Conflict resolution for duplicate Discord IDs (unique constraint + validation)
 
 ### 3.10 Recruitment Application System
@@ -288,7 +299,7 @@ This system will serve as the **single source of truth** for:
 - Trial member performance monitoring (Django queries + reports)
 - Trial member feedback collection (ApplicationComment model)
 - Automatic promotion/removal at trial end (Django Celery tasks)
-- Special trial member Discord roles (DiscordRoleMapping + Django signals)
+- **Discord roles managed externally** (no role mapping models needed)
 - Limited access during trial period (Django groups + permissions)
 
 #### 3.10.5 Voting System
@@ -301,8 +312,8 @@ This system will serve as the **single source of truth** for:
 - **Access Control and Visibility Tiers** (Django permissions + DRF permissions):
   - **Guests/Applicants**: NO ACCESS to any voting data or participation (permission denied in DRF views)
   - **Members**: See only aggregate vote counts (limited DRF serializer fields)
-  - **Developers**: Same access as members (same permission class)
-  - **Recruiters/Officers**: See individual voter details, attendance breakdown, vote changes (full DRF serializer)
+  - **Recruiters**: See individual voter details, attendance breakdown, vote changes (full DRF serializer)
+  - **Officers/Developers**: Full administrative access to all voting data and controls
 - **Decision Calculation**: Final decision based only on counted votes (Django model methods)
 - **Attendance Snapshot**: Capture voter's attendance percentage at time of vote (DecimalField on ApplicationVote)
 - **Discord Integration**: Application summary posted to webhook when trial accepted (Django signals)
@@ -424,10 +435,9 @@ path('api/raids/', include(router.urls))
 ```python
 # Custom DRF APIViews for point operations
 path('api/points/user/<int:user_id>/', 'UserPointsView.as_view()')
-path('api/points/user/<int:user_id>/pool/<int:dkp_pool_id>/', 'UserPoolPointsView.as_view()')
 path('api/points/adjustments/', 'PointAdjustmentViewSet.as_view({'get': 'list', 'post': 'create'})')
 path('api/points/history/user/<int:user_id>/', 'UserPointHistoryView.as_view()')
-path('api/points/leaderboard/<int:dkp_pool_id>/', 'LeaderboardView.as_view()')
+path('api/points/leaderboard/', 'LeaderboardView.as_view()')
 path('api/points/parse-attendance/', 'ParseAttendanceView.as_view()')
 path('api/points/character-attribution/<str:character_name>/', 'CharacterAttributionView.as_view()')
 path('api/attendance/user/<int:user_id>/summary/', 'UserAttendanceSummaryView.as_view()')  # GET
@@ -461,11 +471,9 @@ path('api/bidding/user/<str:discord_id>/max-bid/', 'UserMaxBidView.as_view()')  
 
 #### 5.2.8 Discord Integration (Custom DRF Views)
 ```python
-# Discord Role Management (Custom DRF APIViews)
+# Discord Member Management (Custom DRF APIViews)
 path('api/discord/roster/', 'DiscordRosterView.as_view()')  # GET
-path('api/discord/roles/', 'DiscordRolesView.as_view()')  # GET
 path('api/discord/members/<str:discord_id>/', 'DiscordMemberView.as_view()')  # GET
-path('api/discord/sync-roles/', 'SyncRolesView.as_view()')  # POST
 path('api/discord/link-member/', 'LinkMemberView.as_view()')  # POST
 path('api/discord/unlink-member/<int:user_id>/', 'UnlinkMemberView.as_view()')  # DELETE
 path('api/discord/audit-log/', 'DiscordAuditLogView.as_view()')  # GET

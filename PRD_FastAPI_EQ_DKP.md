@@ -11,7 +11,7 @@ This document outlines the requirements for migrating the existing EQ DKP Plus P
 The existing EQ DKP Plus system is a comprehensive PHP-based application that manages:
 - User accounts and authentication
 - Guild member/character roster
-- DKP point tracking with multiple pools
+- DKP point tracking with single pool system
 - Event and raid management
 - Item distribution and point expenditure
 - Complex point adjustment and calculation systems
@@ -35,7 +35,8 @@ This system will serve as the **single source of truth** for:
 - Discord role synchronization data
 
 ### 2.4 Point Allocation Architecture
-**Fundamental Design**: Points are awarded to **Discord users** (not characters) to enable flexible character reassignment:
+**Fundamental Design**: Points are awarded to **Discord users** (not characters) with a single DKP pool system to enable flexible character reassignment:
+- Single DKP pool for all guild activities (no multiple pools)
 - Raid attendance data parsed by character names
 - Points awarded to the Discord user account owning that character
 - Characters can be reassigned between users without point transfer complexity
@@ -65,7 +66,7 @@ This system will serve as the **single source of truth** for:
   - Discord avatar URL
   - Discord email (from OAuth scope)
 - **Role Group System (replaces individual role flags):**
-  - officer, recruiter, developer, member, applicant, guest
+  - developer, officer, recruiter, member, applicant, guest (in order of highest to lowest permissions)
   - Single role group per user (hierarchical permissions)
 - **API Key Management:**
   - Personal API key generation and rotation
@@ -89,12 +90,12 @@ This system will serve as the **single source of truth** for:
 #### 3.2.2 Character Attributes
 - Character name (required, unique)
 - Character class and level
-- Character rank within guild (synchronized with Discord roles)
+- Character rank within guild
 - Character status (active/inactive/applicant)
 - Association with user account
 - Main/Alt character relationship
 - Guild join date and rank history
-- Discord role synchronization metadata
+- **Note**: Discord roles are static and managed externally (no Discord role models needed)
 
 ### 3.3 Guild Roster Management
 **Priority: High**
@@ -115,17 +116,22 @@ This system will serve as the **single source of truth** for:
 
 #### 3.4.1 User-Based Point Tracking
 - **Points awarded to Discord users, not characters**
-- Current point totals per user per DKP pool
-- Point earning history (character name recorded for reference)
-- Point spending history (item purchased by which character)
-- Point adjustments (manual additions/deductions to user accounts)
+- **Single DKP pool system** (no multiple pools)
+- Current point totals per user
+- Point earning history via multiple sources:
+  - Raid attendance (character name recorded for reference)
+  - Bonus assignments (manual additions with bonus type)
+  - Guild task completion (track targets, farm items, level characters, etc.)
+- Point spending/loss history:
+  - Item purchases (item purchased by which character)
+  - Officer punishments (manual deductions with penalty type)
 
 #### 3.4.2 Point Calculations
 - Real-time point balance calculation per user
 - Historical point tracking with character attribution
-- Support for multiple DKP pools per user
+- **Single DKP pool system** (simplified model without multiple pools)
 - Point decay mechanisms (optional)
-- **Simplified queries**: No character-to-user point aggregation needed
+- **Simplified queries**: User-based aggregation with single pool system
 
 #### 3.4.3 Character Reassignment Impact
 - Character transfers don't require point migration
@@ -144,7 +150,6 @@ This system will serve as the **single source of truth** for:
 
 #### 3.5.2 Event Configuration
 - Default point awards per event type
-- Event-specific item pools
 - Event difficulty modifiers
 
 ### 3.6 Raid Management
@@ -177,17 +182,16 @@ This system will serve as the **single source of truth** for:
 - **No fixed point costs** - all items awarded via bidding
 - Historical bidding data for reference pricing
 
-#### 3.7.2 Dynamic Bidding System
-- **In-game item drops trigger bidding periods**
-- Players bid up to their current DKP balance
-- **Discord bot parses game chat** for bid commands
-- Real-time bid tracking and validation
-- Bid closure and winner determination
-- **Discord bot submits final results** via API:
+#### 3.7.2 In-Game Bidding System
+- **All bidding occurs in-game only** (no web-based bidding interface)
+- **Discord bot monitors game chat** for bid commands and manages auctions
+- **Discord bot determines winner and final bid amount in-game**
+- **Discord bot submits final bidding results** via API:
   - Discord user ID
   - Item name
   - Winning bid amount
   - Character name context
+  - Raid context
 
 #### 3.7.3 Loot Distribution Processing
 - **API receives bid results from Discord bot**
@@ -200,7 +204,14 @@ This system will serve as the **single source of truth** for:
 **Priority: Medium**
 
 #### 3.8.1 Manual Adjustments
-- **Admin ability to add/subtract points from user accounts**
+- **Officer/Admin ability to add/subtract points from user accounts**
+- **Point earning methods**:
+  - Raid attendance (automatic via attendance tracking)
+  - Bonus assignments (manual additions with bonus type)
+  - Guild task completion (manual additions: track targets, farm items, level characters, etc.)
+- **Point loss methods**:
+  - Item purchases (automatic via loot distribution)
+  - Officer punishments (manual deductions with penalty type)
 - Adjustment reasons and notes
 - Adjustment history and audit trail
 - Bulk adjustment capabilities
@@ -215,12 +226,12 @@ This system will serve as the **single source of truth** for:
 ### 3.9 Discord Integration
 **Priority: High**
 
-#### 3.9.1 Authoritative Role Management
-- System serves as single source of truth for guild roles
-- Automated Discord role synchronization via bot API
-- Role hierarchy mapping (guild ranks to Discord roles)
+#### 3.9.1 Member Status Management
+- System serves as single source of truth for guild member status
 - Member status change notifications to Discord
-- Bulk role updates for rank changes
+- **Discord roles are static and managed externally** (no role synchronization needed)
+- Member linking and unlinking (User to Discord ID association)
+- Bulk member status updates
 
 #### 3.9.2 Discord Bot Bidding Integration
 - **Real-time DKP balance queries** for bid validation
@@ -231,18 +242,18 @@ This system will serve as the **single source of truth** for:
 - **Bidding history tracking** for audit and analytics
 
 #### 3.9.3 Discord Bot API Endpoints
-- GET endpoints for current roster and role mappings
+- GET endpoints for current roster and member status
 - Webhook notifications for member status changes
 - Authentication for Discord bot access via bot API keys
-- Role assignment audit logging
+- Member status change audit logging
 - Error handling and retry mechanisms
 - **Bidding system API access** with extended permissions
 
 #### 3.9.4 Member Linking
 - Discord ID association with user accounts
 - Verification process for Discord-to-character linking
-- Automatic role assignment upon character approval
-- Role removal upon character deactivation
+- Member status updates upon character approval
+- Member status updates upon character deactivation
 - Conflict resolution for duplicate Discord IDs
 
 ### 3.10 Recruitment Application System
@@ -298,8 +309,8 @@ This system will serve as the **single source of truth** for:
 - **Access Control and Visibility Tiers**:
   - **Guests/Applicants**: NO ACCESS to any voting data or participation
   - **Members**: See only aggregate vote counts (pass: X, fail: Y, recycle: Z)
-  - **Developers**: Same access as members (aggregate counts only)
-  - **Recruiters/Officers**: See individual voter details, attendance breakdown, vote changes
+  - **Recruiters**: See individual voter details, attendance breakdown, vote changes
+  - **Officers/Developers**: Full administrative access to all voting data and controls
 - **Decision Calculation**: Final decision based only on counted votes (≥15% attendance)
 - **Attendance Snapshot**: Capture voter's attendance percentage at time of vote
 - **Discord Integration**: Application summary posted to webhook when trial accepted
@@ -419,10 +430,9 @@ POST /raids/{raid_id}/loot
 #### 5.2.6 Points
 ```
 GET /points/user/{user_id}
-GET /points/user/{user_id}/pool/{dkp_pool_id}
 POST /points/adjustments
 GET /points/history/user/{user_id}
-GET /points/leaderboard/{dkp_pool_id}
+GET /points/leaderboard
 POST /points/parse-attendance
 GET /points/character-attribution/{character_name}
 GET /attendance/user/{user_id}/summary
@@ -458,11 +468,9 @@ GET /bidding/user/{discord_id}/max-bid
 
 #### 5.2.8 Discord Integration
 ```
-# Discord Role Management
+# Discord Member Management
 GET /discord/roster
-GET /discord/roles
 GET /discord/members/{discord_id}
-POST /discord/sync-roles
 POST /discord/link-member
 DELETE /discord/unlink-member/{user_id}
 GET /discord/audit-log
@@ -498,10 +506,10 @@ PUT /applications/{application_id}/vote   # member, developer, recruiter, office
 DELETE /applications/{application_id}/vote # member, developer, recruiter, officer only
 GET /applications/{application_id}/votes/summary      # member, developer, recruiter, officer only
 GET /applications/{application_id}/votes/member-view  # member, developer, recruiter, officer only
-GET /applications/{application_id}/votes/officer-view # recruiter, officer only
-GET /applications/{application_id}/votes/details      # recruiter, officer only
-GET /applications/{application_id}/voting-eligibility # recruiter, officer only
-GET /applications/{application_id}/vote-changes       # recruiter, officer only
+GET /applications/{application_id}/votes/officer-view # recruiter, officer, developer only
+GET /applications/{application_id}/votes/details      # recruiter, officer, developer only
+GET /applications/{application_id}/voting-eligibility # recruiter, officer, developer only
+GET /applications/{application_id}/vote-changes       # recruiter, officer, developer only
 
 # Note: Guests and applicants have NO ACCESS to any voting endpoints
 ```
