@@ -551,30 +551,6 @@ class Item(models.Model):
         max_length=200,
         validators=[MinLengthValidator(2)]
     )
-    description = models.TextField(blank=True)
-    item_class = models.CharField(
-        max_length=50, 
-        blank=True,
-        help_text="weapon, armor, misc, etc."
-    )
-    RARITY_CHOICES = [
-        ('common', 'Common'),
-        ('uncommon', 'Uncommon'),
-        ('rare', 'Rare'),
-        ('epic', 'Epic'),
-        ('legendary', 'Legendary'),
-    ]
-    rarity = models.CharField(
-        max_length=20, 
-        choices=RARITY_CHOICES, 
-        blank=True
-    )
-    raid_tier = models.CharField(
-        max_length=50, 
-        blank=True,
-        help_text="raid difficulty/expansion tier"
-    )
-    is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -582,10 +558,7 @@ class Item(models.Model):
         db_table = 'items'
         indexes = [
             models.Index(fields=['name']),
-            models.Index(fields=['item_class']),
-            models.Index(fields=['rarity']),
-            models.Index(fields=['raid_tier']),
-            models.Index(fields=['is_active']),
+            models.Index(fields=['created_at']),
         ]
 
     def __str__(self):

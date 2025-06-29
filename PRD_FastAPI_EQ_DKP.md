@@ -168,9 +168,9 @@ This system will serve as the **single source of truth** for:
 **Priority: High**
 
 #### 3.7.1 Item Database
-- Item name and description
-- Item categories/pools (raid tiers, item types)
-- Item rarity and metadata
+- Item name only
+- Simplified item tracking without categories or metadata
+- Item names for bidding (simplified model)
 - **No fixed point costs** - all items awarded via bidding
 - Historical bidding data for reference pricing
 

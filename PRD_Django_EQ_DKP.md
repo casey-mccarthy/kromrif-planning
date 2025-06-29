@@ -171,9 +171,9 @@ This system will serve as the **single source of truth** for:
 
 #### 3.7.1 Item Database
 - Django Model with standard fields
-- Item name and description (CharField, TextField)
-- Item categories/pools (CharField choices or ForeignKey to categories)
-- Item rarity and metadata (CharField choices)
+- Item name only (CharField)
+- Simplified item tracking without categories or metadata
+- Item names for bidding (simplified model)
 - **No fixed point costs** - all items awarded via bidding (no price field)
 - Historical bidding data for reference pricing (BidHistory model)
 

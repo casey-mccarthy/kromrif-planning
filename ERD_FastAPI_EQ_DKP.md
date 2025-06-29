@@ -352,25 +352,16 @@ CREATE INDEX idx_raid_attendance_char_class ON raid_attendance(character_class);
 CREATE TABLE items (
     id SERIAL PRIMARY KEY,
     name VARCHAR(200) NOT NULL,
-    description TEXT,
-    item_class VARCHAR(50),  -- weapon, armor, misc, etc.
-    rarity VARCHAR(20),      -- common, uncommon, rare, epic, legendary
-    raid_tier VARCHAR(50),   -- raid difficulty/expansion tier
-    is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
     -- Constraints
-    CONSTRAINT items_name_length CHECK (LENGTH(name) >= 2),
-    CONSTRAINT items_rarity_valid CHECK (rarity IN ('common', 'uncommon', 'rare', 'epic', 'legendary'))
+    CONSTRAINT items_name_length CHECK (LENGTH(name) >= 2)
 );
 
 -- Indexes
 CREATE INDEX idx_items_name ON items(name);
-CREATE INDEX idx_items_class ON items(item_class);
-CREATE INDEX idx_items_rarity ON items(rarity);
-CREATE INDEX idx_items_raid_tier ON items(raid_tier);
-CREATE INDEX idx_items_active ON items(is_active);
+CREATE INDEX idx_items_created_at ON items(created_at);
 ```
 
 ### 10. Item Bids Table
