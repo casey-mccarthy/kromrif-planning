@@ -3,144 +3,243 @@
 
 ## Database Schema Overview
 
-This ERD defines the database structure for the FastAPI-based EQ DKP system, focusing on the core entities needed for guild roster management, DKP tracking, events, raids, and loot distribution.
+This ERD defines the database structure for the FastAPI-based EQ DKP system using SQLAlchemy ORM models, focusing on the core entities needed for guild roster management, DKP tracking, events, raids, and loot distribution. Database migrations are managed using Alembic.
 
-## Core Entities
+## SQLAlchemy ORM Models
 
-### 1. Users Table
+### 1. Users Model
 **Purpose**: Store Discord user account information and OAuth data
 
-```sql
-CREATE TABLE users (
-    id SERIAL PRIMARY KEY,
-    discord_id VARCHAR(50) UNIQUE NOT NULL,  -- Primary external identifier
-    discord_username VARCHAR(50) NOT NULL,
-    discord_discriminator VARCHAR(10),  -- Legacy Discord discriminators
-    discord_global_name VARCHAR(50),  -- New Discord display names
-    discord_avatar VARCHAR(255),  -- Discord avatar hash/URL
-    discord_email VARCHAR(255),  -- Email from Discord OAuth
-    role_group VARCHAR(20) DEFAULT 'guest',  -- officer, recruiter, developer, member, applicant, guest
-    membership_status VARCHAR(20) DEFAULT 'applicant',  -- member, trial, applicant, inactive
-    is_active BOOLEAN DEFAULT TRUE,
-    
-    -- OAuth token storage
-    discord_access_token TEXT,
-    discord_refresh_token TEXT,
-    token_expires_at TIMESTAMP,
-    
-    -- Timestamps
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_login TIMESTAMP NULL,
-    
-    -- Constraints
-    CONSTRAINT users_discord_id_length CHECK (LENGTH(discord_id) >= 10),
-    CONSTRAINT users_discord_username_length CHECK (LENGTH(discord_username) >= 2),
-    CONSTRAINT users_role_group_valid CHECK (role_group IN ('officer', 'recruiter', 'developer', 'member', 'applicant', 'guest')),
-    CONSTRAINT users_membership_status_valid CHECK (membership_status IN ('member', 'trial', 'applicant', 'inactive'))
-);
+```python
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.sql import func
+from sqlalchemy.schema import CheckConstraint, Index
+from datetime import datetime
+from enum import Enum
+import uuid
 
--- Indexes
-CREATE UNIQUE INDEX idx_users_discord_id ON users(discord_id);
-CREATE INDEX idx_users_discord_username ON users(discord_username);
-CREATE INDEX idx_users_role_group ON users(role_group);
-CREATE INDEX idx_users_membership_status ON users(membership_status);
-CREATE INDEX idx_users_active ON users(is_active);
-CREATE INDEX idx_users_last_login ON users(last_login);
+Base = declarative_base()
+
+class RoleGroup(str, Enum):
+    OFFICER = "officer"
+    RECRUITER = "recruiter"
+    DEVELOPER = "developer"
+    MEMBER = "member"
+    APPLICANT = "applicant"
+    GUEST = "guest"
+
+class MembershipStatus(str, Enum):
+    MEMBER = "member"
+    TRIAL = "trial"
+    APPLICANT = "applicant"
+    INACTIVE = "inactive"
+
+class User(Base):
+    """Discord user account information and OAuth data"""
+    __tablename__ = "users"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    discord_id = Column(String(50), unique=True, nullable=False, index=True)
+    discord_username = Column(String(50), nullable=False, index=True)
+    discord_discriminator = Column(String(10), nullable=True)  # Legacy Discord discriminators
+    discord_global_name = Column(String(50), nullable=True)   # New Discord display names
+    discord_avatar = Column(String(255), nullable=True)       # Discord avatar hash/URL
+    discord_email = Column(String(255), nullable=True)        # Email from Discord OAuth
+    
+    role_group = Column(String(20), default=RoleGroup.GUEST, nullable=False, index=True)
+    membership_status = Column(String(20), default=MembershipStatus.APPLICANT, nullable=False, index=True)
+    is_active = Column(Boolean, default=True, nullable=False, index=True)
+    
+    # OAuth token storage
+    discord_access_token = Column(Text, nullable=True)
+    discord_refresh_token = Column(Text, nullable=True)
+    token_expires_at = Column(DateTime, nullable=True)
+    
+    # Timestamps
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+    last_login = Column(DateTime, nullable=True, index=True)
+    
+    # Table constraints
+    __table_args__ = (
+        CheckConstraint("LENGTH(discord_id) >= 10", name="users_discord_id_length"),
+        CheckConstraint("LENGTH(discord_username) >= 2", name="users_discord_username_length"),
+        CheckConstraint(
+            f"role_group IN ('{RoleGroup.OFFICER}', '{RoleGroup.RECRUITER}', '{RoleGroup.DEVELOPER}', "
+            f"'{RoleGroup.MEMBER}', '{RoleGroup.APPLICANT}', '{RoleGroup.GUEST}')",
+            name="users_role_group_valid"
+        ),
+        CheckConstraint(
+            f"membership_status IN ('{MembershipStatus.MEMBER}', '{MembershipStatus.TRIAL}', "
+            f"'{MembershipStatus.APPLICANT}', '{MembershipStatus.INACTIVE}')",
+            name="users_membership_status_valid"
+        ),
+        Index('idx_users_discord_id', 'discord_id'),
+        Index('idx_users_discord_username', 'discord_username'),
+        Index('idx_users_role_group', 'role_group'),
+        Index('idx_users_membership_status', 'membership_status'),
+        Index('idx_users_active', 'is_active'),
+        Index('idx_users_last_login', 'last_login'),
+    )
+
+    def __repr__(self):
+        return f"<User(id={self.id}, discord_username='{self.discord_username}', discord_id='{self.discord_id}')>"
 ```
 
-### 2. API Keys Table
+### 2. API Keys Model
 **Purpose**: Store API keys for user and bot programmatic access
 
-```sql
-CREATE TABLE api_keys (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    key_name VARCHAR(100) NOT NULL,  -- User-defined name for the key
-    key_hash VARCHAR(255) NOT NULL,  -- Hashed API key
-    key_prefix VARCHAR(20) NOT NULL,  -- First few characters for identification
-    key_type VARCHAR(20) DEFAULT 'personal',  -- personal, bot
-    permissions TEXT[],  -- Array of permission scopes
-    is_active BOOLEAN DEFAULT TRUE,
-    last_used_at TIMESTAMP NULL,
-    usage_count INTEGER DEFAULT 0,
-    rate_limit_per_hour INTEGER DEFAULT 1000,
-    expires_at TIMESTAMP NULL,  -- Optional expiration
-    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,  -- For bot keys
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
-    -- Constraints
-    CONSTRAINT api_keys_name_length CHECK (LENGTH(key_name) >= 3),
-    CONSTRAINT api_keys_type_valid CHECK (key_type IN ('personal', 'bot')),
-    CONSTRAINT api_keys_user_or_bot CHECK (
-        (key_type = 'personal' AND user_id IS NOT NULL) OR 
-        (key_type = 'bot' AND created_by IS NOT NULL)
-    )
-);
+```python
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, ARRAY
+from sqlalchemy.orm import relationship
+from sqlalchemy.schema import CheckConstraint, Index
 
--- Indexes
-CREATE INDEX idx_api_keys_user ON api_keys(user_id);
-CREATE INDEX idx_api_keys_hash ON api_keys(key_hash);
-CREATE INDEX idx_api_keys_prefix ON api_keys(key_prefix);
-CREATE INDEX idx_api_keys_type ON api_keys(key_type);
-CREATE INDEX idx_api_keys_active ON api_keys(is_active);
-CREATE INDEX idx_api_keys_created_by ON api_keys(created_by);
-CREATE INDEX idx_api_keys_last_used ON api_keys(last_used_at);
+class KeyType(str, Enum):
+    PERSONAL = "personal"
+    BOT = "bot"
+
+class APIKey(Base):
+    """API keys for user and bot programmatic access"""
+    __tablename__ = "api_keys"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    key_name = Column(String(100), nullable=False)  # User-defined name for the key
+    key_hash = Column(String(255), nullable=False, unique=True, index=True)  # Hashed API key
+    key_prefix = Column(String(20), nullable=False, index=True)  # First few characters for identification
+    key_type = Column(String(20), default=KeyType.PERSONAL, nullable=False, index=True)
+    permissions = Column(ARRAY(String), default=[], nullable=False)  # Array of permission scopes
+    is_active = Column(Boolean, default=True, nullable=False, index=True)
+    last_used_at = Column(DateTime, nullable=True, index=True)
+    usage_count = Column(Integer, default=0, nullable=False)
+    rate_limit_per_hour = Column(Integer, default=1000, nullable=False)
+    expires_at = Column(DateTime, nullable=True)  # Optional expiration
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)  # For bot keys
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+    
+    # Relationships
+    user = relationship("User", foreign_keys=[user_id], back_populates="api_keys")
+    creator = relationship("User", foreign_keys=[created_by], back_populates="created_api_keys")
+    
+    # Table constraints
+    __table_args__ = (
+        CheckConstraint("LENGTH(key_name) >= 3", name="api_keys_name_length"),
+        CheckConstraint(
+            f"key_type IN ('{KeyType.PERSONAL}', '{KeyType.BOT}')",
+            name="api_keys_type_valid"
+        ),
+        CheckConstraint(
+            "(key_type = 'personal' AND user_id IS NOT NULL) OR (key_type = 'bot' AND created_by IS NOT NULL)",
+            name="api_keys_user_or_bot"
+        ),
+        Index('idx_api_keys_user', 'user_id'),
+        Index('idx_api_keys_hash', 'key_hash'),
+        Index('idx_api_keys_prefix', 'key_prefix'),
+        Index('idx_api_keys_type', 'key_type'),
+        Index('idx_api_keys_active', 'is_active'),
+        Index('idx_api_keys_created_by', 'created_by'),
+        Index('idx_api_keys_last_used', 'last_used_at'),
+    )
+
+    def __repr__(self):
+        return f"<APIKey(id={self.id}, key_name='{self.key_name}', key_type='{self.key_type}')>"
+
+# Add reverse relationships to User model
+User.api_keys = relationship("APIKey", foreign_keys="APIKey.user_id", back_populates="user")
+User.created_api_keys = relationship("APIKey", foreign_keys="APIKey.created_by", back_populates="creator")
 ```
 
-### 3. Characters Table
+### 3. Characters Model
 **Purpose**: Store character information and link to users
 
-```sql
-CREATE TABLE characters (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-    name VARCHAR(50) UNIQUE NOT NULL,
-    character_class VARCHAR(50),
-    level INTEGER DEFAULT 1,
-    rank_id INTEGER REFERENCES ranks(id) ON DELETE SET NULL,
-    is_main BOOLEAN DEFAULT FALSE,
-    main_character_id INTEGER REFERENCES characters(id) ON DELETE SET NULL,
-    is_active BOOLEAN DEFAULT TRUE,
-    notes TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
-    -- Constraints
-    CONSTRAINT characters_level_range CHECK (level >= 1 AND level <= 120),
-    CONSTRAINT characters_name_length CHECK (LENGTH(name) >= 2),
-    CONSTRAINT characters_main_not_self CHECK (main_character_id != id)
-);
+```python
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey
+from sqlalchemy.orm import relationship
+from sqlalchemy.schema import CheckConstraint, Index
 
--- Indexes
-CREATE INDEX idx_characters_name ON characters(name);
-CREATE INDEX idx_characters_user_id ON characters(user_id);
-CREATE INDEX idx_characters_main_id ON characters(main_character_id);
-CREATE INDEX idx_characters_active ON characters(is_active);
-CREATE INDEX idx_characters_rank ON characters(rank_id);
+class Character(Base):
+    """Character information linked to users"""
+    __tablename__ = "characters"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    name = Column(String(50), unique=True, nullable=False, index=True)
+    character_class = Column(String(50), nullable=True)
+    level = Column(Integer, default=1, nullable=False)
+    rank_id = Column(Integer, ForeignKey("ranks.id", ondelete="SET NULL"), nullable=True, index=True)
+    is_main = Column(Boolean, default=False, nullable=False)
+    main_character_id = Column(Integer, ForeignKey("characters.id", ondelete="SET NULL"), nullable=True, index=True)
+    is_active = Column(Boolean, default=True, nullable=False, index=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+    
+    # Relationships
+    user = relationship("User", back_populates="characters")
+    rank = relationship("Rank", back_populates="characters")
+    main_character = relationship("Character", remote_side=[id], back_populates="alts")
+    alts = relationship("Character", back_populates="main_character")
+    
+    # Table constraints
+    __table_args__ = (
+        CheckConstraint("level >= 1 AND level <= 120", name="characters_level_range"),
+        CheckConstraint("LENGTH(name) >= 2", name="characters_name_length"),
+        CheckConstraint("main_character_id != id", name="characters_main_not_self"),
+        Index('idx_characters_name', 'name'),
+        Index('idx_characters_user_id', 'user_id'),
+        Index('idx_characters_main_id', 'main_character_id'),
+        Index('idx_characters_active', 'is_active'),
+        Index('idx_characters_rank', 'rank_id'),
+    )
+
+    def __repr__(self):
+        return f"<Character(id={self.id}, name='{self.name}', user_id={self.user_id})>"
+
+# Add reverse relationship to User model
+User.characters = relationship("Character", back_populates="user")
 ```
 
-### 4. Ranks Table
+### 4. Ranks Model
 **Purpose**: Define character ranks within the guild
 
-```sql
-CREATE TABLE ranks (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(50) UNIQUE NOT NULL,
-    description TEXT,
-    sort_order INTEGER DEFAULT 0,
-    is_default BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+```python
+class Rank(Base):
+    """Character ranks within the guild"""
+    __tablename__ = "ranks"
     
-    -- Constraints
-    CONSTRAINT ranks_name_length CHECK (LENGTH(name) >= 2)
-);
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(50), unique=True, nullable=False)
+    description = Column(Text, nullable=True)
+    sort_order = Column(Integer, default=0, nullable=False, index=True)
+    is_default = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    
+    # Relationships
+    characters = relationship("Character", back_populates="rank")
+    discord_mappings = relationship("DiscordRoleMapping", back_populates="rank")
+    
+    # Table constraints
+    __table_args__ = (
+        CheckConstraint("LENGTH(name) >= 2", name="ranks_name_length"),
+        Index('idx_ranks_sort_order', 'sort_order'),
+        # Partial unique index for is_default=True (PostgreSQL syntax)
+        Index('idx_ranks_default', 'is_default', postgresql_where=(is_default == True)),
+    )
 
--- Indexes
-CREATE INDEX idx_ranks_sort_order ON ranks(sort_order);
-CREATE UNIQUE INDEX idx_ranks_default ON ranks(is_default) WHERE is_default = TRUE;
+    def __repr__(self):
+        return f"<Rank(id={self.id}, name='{self.name}', sort_order={self.sort_order})>"
 ```
+
+### 5. Additional Models
+**Note**: The remaining models (DKP Pools, Events, Raids, Items, etc.) follow the same SQLAlchemy pattern with proper relationships, constraints, and indexes. For brevity, they are not all shown here, but would include:
+
+- DKPPool, Event, Raid, RaidAttendance
+- Item, ItemBid, BidHistory, LootDistribution  
+- PointAdjustment, UserPointsSummary
+- CharacterOwnershipHistory, DiscordRoleMapping, DiscordSyncLog
+- GuildApplication, ApplicationVote, ApplicationComment, MemberAttendanceSummary
 
 ### 5. DKP Pools Table
 **Purpose**: Define different DKP pools (e.g., Main Raid, Alt Raid, etc.)
@@ -983,63 +1082,477 @@ JOIN users u ON av.user_id = u.id
 ORDER BY av.application_id, av.created_at;
 ```
 
-## Trigger Functions for Data Consistency
+## SQLAlchemy Event Listeners for Data Consistency
 
-### Update Character Points Summary:
-```sql
--- Function to update character points summary
-CREATE OR REPLACE FUNCTION update_character_points()
-RETURNS TRIGGER AS $$
-BEGIN
-    -- Update or insert character points summary
-    INSERT INTO character_points_summary (character_id, dkp_pool_id, total_earned, total_spent, total_adjustments)
-    VALUES (
-        COALESCE(NEW.character_id, OLD.character_id),
-        COALESCE(NEW.dkp_pool_id, OLD.dkp_pool_id),
-        0, 0, 0
+### Update User Points Summary:
+```python
+from sqlalchemy import event
+from sqlalchemy.orm import Session
+
+@event.listens_for(RaidAttendance, 'after_insert')
+@event.listens_for(RaidAttendance, 'after_update')
+@event.listens_for(RaidAttendance, 'after_delete')
+def update_points_on_attendance_change(mapper, connection, target):
+    """Update user points summary when attendance changes"""
+    session = Session(bind=connection)
+    try:
+        summary = session.query(UserPointsSummary).filter_by(
+            user_id=target.user_id,
+            dkp_pool_id=target.dkp_pool_id
+        ).first()
+        
+        if not summary:
+            summary = UserPointsSummary(
+                user_id=target.user_id,
+                dkp_pool_id=target.dkp_pool_id
+            )
+            session.add(summary)
+        
+        # Recalculate totals
+        summary.recalculate_totals(session)
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        raise e
+    finally:
+        session.close()
+
+@event.listens_for(LootDistribution, 'after_insert')
+@event.listens_for(LootDistribution, 'after_update') 
+@event.listens_for(LootDistribution, 'after_delete')
+def update_points_on_loot_change(mapper, connection, target):
+    """Update user points summary when loot changes"""
+    # Similar implementation to attendance change
+    pass
+
+@event.listens_for(PointAdjustment, 'after_insert')
+@event.listens_for(PointAdjustment, 'after_update')
+@event.listens_for(PointAdjustment, 'after_delete') 
+def update_points_on_adjustment_change(mapper, connection, target):
+    """Update user points summary when adjustments change"""
+    # Similar implementation to attendance change
+    pass
+```
+
+## SQLAlchemy Database Configuration
+
+### Database Connection Setup:
+```python
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import QueuePool
+import os
+
+# Database configuration
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:password@localhost/eq_dkp")
+
+# Create engine with connection pooling
+engine = create_engine(
+    DATABASE_URL,
+    poolclass=QueuePool,
+    pool_size=20,
+    max_overflow=30,
+    pool_pre_ping=True,
+    pool_recycle=300,
+    echo=False  # Set to True for SQL query logging
+)
+
+# Session factory
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Base class for models
+Base = declarative_base()
+
+# Database dependency for FastAPI
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+```
+
+### Models Module Structure:
+```python
+# models/__init__.py
+from .base import Base
+from .user import User, APIKey
+from .character import Character, Rank, CharacterOwnershipHistory
+from .dkp import DKPPool, UserPointsSummary, PointAdjustment
+from .event import Event, Raid, RaidAttendance
+from .item import Item, ItemBid, BidHistory, LootDistribution
+from .application import GuildApplication, ApplicationVote, ApplicationComment
+from .discord import DiscordRoleMapping, DiscordSyncLog
+from .analytics import MemberAttendanceSummary
+
+__all__ = [
+    "Base", "User", "APIKey", "Character", "Rank", "CharacterOwnershipHistory",
+    "DKPPool", "UserPointsSummary", "PointAdjustment", "Event", "Raid", 
+    "RaidAttendance", "Item", "ItemBid", "BidHistory", "LootDistribution",
+    "GuildApplication", "ApplicationVote", "ApplicationComment",
+    "DiscordRoleMapping", "DiscordSyncLog", "MemberAttendanceSummary"
+]
+```
+
+## Alembic Database Migrations
+
+### Alembic Configuration:
+```python
+# alembic.ini
+[alembic]
+script_location = alembic
+prepend_sys_path = .
+version_path_separator = os
+sqlalchemy.url = postgresql://user:password@localhost/eq_dkp
+
+[post_write_hooks]
+hooks = black
+black.type = console_scripts
+black.entrypoint = black
+black.options = -l 88
+
+[loggers]
+keys = root,sqlalchemy,alembic
+
+[handlers]
+keys = console
+
+[formatters]
+keys = generic
+
+[logger_root]
+level = WARN
+handlers = console
+qualname =
+
+[logger_sqlalchemy]
+level = WARN
+handlers =
+qualname = sqlalchemy.engine
+
+[logger_alembic]
+level = INFO
+handlers =
+qualname = alembic
+
+[handler_console]
+class = StreamHandler
+args = (sys.stderr,)
+level = NOTSET
+formatter = generic
+
+[formatter_generic]
+format = %(levelname)-5.5s [%(name)s] %(message)s
+datefmt = %H:%M:%S
+```
+
+### Migration Environment Setup:
+```python
+# alembic/env.py
+from logging.config import fileConfig
+from sqlalchemy import engine_from_config
+from sqlalchemy import pool
+from alembic import context
+import os
+import sys
+
+# Add your model's MetaData object here
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+from models import Base
+target_metadata = Base.metadata
+
+# Alembic Config object
+config = context.config
+
+# Override sqlalchemy.url from environment if available
+if os.getenv("DATABASE_URL"):
+    config.set_main_option("sqlalchemy.url", os.getenv("DATABASE_URL"))
+
+# Interpret the config file for logging
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
+
+def run_migrations_offline() -> None:
+    """Run migrations in 'offline' mode."""
+    url = config.get_main_option("sqlalchemy.url")
+    context.configure(
+        url=url,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+        compare_type=True,
+        compare_server_default=True,
     )
-    ON CONFLICT (character_id, dkp_pool_id) 
-    DO UPDATE SET last_updated = CURRENT_TIMESTAMP;
+
+    with context.begin_transaction():
+        context.run_migrations()
+
+def run_migrations_online() -> None:
+    """Run migrations in 'online' mode."""
+    connectable = engine_from_config(
+        config.get_section(config.config_ini_section),
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
+    )
+
+    with connectable.connect() as connection:
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            compare_type=True,
+            compare_server_default=True,
+        )
+
+        with context.begin_transaction():
+            context.run_migrations()
+
+if context.is_offline_mode():
+    run_migrations_offline()
+else:
+    run_migrations_online()
+```
+
+### Sample Migration:
+```python
+# alembic/versions/001_initial_schema.py
+"""Initial schema
+
+Revision ID: 001
+Revises: 
+Create Date: 2024-01-01 12:00:00.000000
+
+"""
+from typing import Sequence, Union
+from alembic import op
+import sqlalchemy as sa
+
+# revision identifiers
+revision: str = '001'
+down_revision: Union[str, None] = None
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+def upgrade() -> None:
+    """Create initial tables"""
+    # Users table
+    op.create_table('users',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('discord_id', sa.String(length=50), nullable=False),
+        sa.Column('discord_username', sa.String(length=50), nullable=False),
+        sa.Column('discord_discriminator', sa.String(length=10), nullable=True),
+        sa.Column('discord_global_name', sa.String(length=50), nullable=True),
+        sa.Column('discord_avatar', sa.String(length=255), nullable=True),
+        sa.Column('discord_email', sa.String(length=255), nullable=True),
+        sa.Column('role_group', sa.String(length=20), nullable=False),
+        sa.Column('membership_status', sa.String(length=20), nullable=False),
+        sa.Column('is_active', sa.Boolean(), nullable=False),
+        sa.Column('discord_access_token', sa.Text(), nullable=True),
+        sa.Column('discord_refresh_token', sa.Text(), nullable=True),
+        sa.Column('token_expires_at', sa.DateTime(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+        sa.Column('last_login', sa.DateTime(), nullable=True),
+        sa.CheckConstraint('LENGTH(discord_id) >= 10', name='users_discord_id_length'),
+        sa.CheckConstraint('LENGTH(discord_username) >= 2', name='users_discord_username_length'),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('discord_id')
+    )
+    op.create_index('idx_users_discord_id', 'users', ['discord_id'])
+    op.create_index('idx_users_discord_username', 'users', ['discord_username'])
+    op.create_index('idx_users_role_group', 'users', ['role_group'])
     
-    -- Recalculate totals (this would be more sophisticated in practice)
-    -- This is a simplified version - actual implementation would be more efficient
-    
-    RETURN COALESCE(NEW, OLD);
-END;
-$$ LANGUAGE plpgsql;
+    # Additional tables would follow...
 
--- Triggers for automatic updates
-CREATE TRIGGER trigger_update_points_on_attendance
-    AFTER INSERT OR UPDATE OR DELETE ON raid_attendance
-    FOR EACH ROW EXECUTE FUNCTION update_character_points();
+def downgrade() -> None:
+    """Drop initial tables"""
+    op.drop_table('users')
+    # Additional drop statements would follow...
+```
 
-CREATE TRIGGER trigger_update_points_on_loot
-    AFTER INSERT OR UPDATE OR DELETE ON loot_distribution
-    FOR EACH ROW EXECUTE FUNCTION update_character_points();
+### Common Migration Commands:
+```bash
+# Initialize Alembic (only once)
+alembic init alembic
 
-CREATE TRIGGER trigger_update_points_on_adjustment
-    AFTER INSERT OR UPDATE OR DELETE ON point_adjustments
-    FOR EACH ROW EXECUTE FUNCTION update_character_points();
+# Generate new migration
+alembic revision --autogenerate -m "Add new table"
+
+# Apply migrations
+alembic upgrade head
+
+# Downgrade migration
+alembic downgrade -1
+
+# Show migration history
+alembic history
+
+# Show current revision
+alembic current
+
+# Generate SQL for migration (without applying)
+alembic upgrade head --sql > migration.sql
+```
+
+## SQLAlchemy Query Optimization
+
+### Using SQLAlchemy Core for Complex Queries:
+```python
+from sqlalchemy import text, func, and_, or_, case
+from sqlalchemy.orm import joinedload, selectinload
+
+# Complex user points query with eager loading
+def get_user_points_with_details(db: Session, user_id: int):
+    return db.query(User).options(
+        selectinload(User.characters),
+        joinedload(User.api_keys)
+    ).filter(User.id == user_id).first()
+
+# Efficient aggregation query
+def get_dkp_leaderboard(db: Session, dkp_pool_id: int, limit: int = 50):
+    return db.query(
+        UserPointsSummary.user_id,
+        User.discord_username,
+        UserPointsSummary.current_balance,
+        UserPointsSummary.total_earned,
+        UserPointsSummary.total_spent
+    ).join(User).filter(
+        UserPointsSummary.dkp_pool_id == dkp_pool_id
+    ).order_by(
+        UserPointsSummary.current_balance.desc()
+    ).limit(limit).all()
+
+# Raw SQL for complex reporting
+def get_attendance_report(db: Session, start_date, end_date):
+    query = text("""
+        SELECT 
+            u.discord_username,
+            COUNT(ra.id) as raids_attended,
+            SUM(ra.points_earned) as total_points_earned
+        FROM users u
+        LEFT JOIN raid_attendance ra ON u.id = ra.user_id
+        JOIN raids r ON ra.raid_id = r.id
+        WHERE r.raid_date BETWEEN :start_date AND :end_date
+        GROUP BY u.id, u.discord_username
+        ORDER BY total_points_earned DESC
+    """)
+    return db.execute(query, {
+        "start_date": start_date,
+        "end_date": end_date
+    }).fetchall()
 ```
 
 ## Performance Considerations
 
-### Indexing Strategy:
-1. Primary keys and foreign keys are automatically indexed
-2. Frequently queried columns (character names, dates) have dedicated indexes
-3. Composite indexes for common query patterns
-4. Partial indexes for boolean fields (e.g., active records only)
+### SQLAlchemy Indexing Strategy:
+```python
+# Composite indexes for common query patterns
+class RaidAttendance(Base):
+    __tablename__ = "raid_attendance"
+    
+    # ... column definitions ...
+    
+    __table_args__ = (
+        # Composite index for user + date range queries
+        Index('idx_raid_attendance_user_date', 'user_id', 'raid_date'),
+        # Composite index for raid + user queries
+        Index('idx_raid_attendance_raid_user', 'raid_id', 'user_id'),
+        # Partial index for active records only
+        Index('idx_raid_attendance_active', 'is_active', postgresql_where=(is_active == True)),
+    )
 
-### Query Optimization:
-1. Use materialized views for complex calculations
-2. Implement proper connection pooling
-3. Consider read replicas for reporting queries
-4. Regular VACUUM and ANALYZE operations
+# Covering indexes for read-heavy queries
+class UserPointsSummary(Base):
+    __tablename__ = "user_points_summary"
+    
+    # ... column definitions ...
+    
+    __table_args__ = (
+        # Covering index to avoid table lookups
+        Index('idx_points_summary_covering', 
+              'dkp_pool_id', 'current_balance', 'user_id',
+              postgresql_include=['total_earned', 'total_spent']),
+    )
+```
+
+### Query Optimization Best Practices:
+1. **Use eager loading** for known relationships: `joinedload()`, `selectinload()`
+2. **Implement query result caching** for frequently accessed data
+3. **Use database connection pooling** with appropriate pool sizes
+4. **Consider read replicas** for reporting and analytics queries
+5. **Regular database maintenance**: VACUUM, ANALYZE, and statistics updates
+6. **Monitor slow queries** and add appropriate indexes
 
 ### Scaling Considerations:
-1. Partition large tables by date (raid_attendance, loot_distribution)
-2. Archive old data beyond retention period
-3. Use database connection pooling
-4. Consider caching frequently accessed data
+1. **Partition large tables** by date (raid_attendance, loot_distribution)
+2. **Archive old data** beyond retention periods using Alembic migrations
+3. **Use materialized views** for complex aggregations with scheduled refreshes
+4. **Implement application-level caching** (Redis) for frequently accessed data
+5. **Consider horizontal sharding** for extremely large datasets
 
-This ERD provides a solid foundation for the FastAPI-based EQ DKP system while maintaining flexibility for future enhancements and ensuring data integrity throughout the application lifecycle.
+## Development and Deployment
+
+### Environment-Specific Configurations:
+```python
+# config.py
+import os
+from enum import Enum
+
+class Environment(str, Enum):
+    DEVELOPMENT = "development"
+    STAGING = "staging" 
+    PRODUCTION = "production"
+
+class DatabaseConfig:
+    def __init__(self):
+        self.environment = Environment(os.getenv("ENVIRONMENT", "development"))
+        
+        if self.environment == Environment.PRODUCTION:
+            self.database_url = os.getenv("DATABASE_URL")
+            self.pool_size = 20
+            self.echo = False
+        elif self.environment == Environment.STAGING:
+            self.database_url = os.getenv("STAGING_DATABASE_URL")
+            self.pool_size = 10
+            self.echo = False
+        else:  # development
+            self.database_url = "postgresql://user:password@localhost/eq_dkp_dev"
+            self.pool_size = 5
+            self.echo = True
+
+db_config = DatabaseConfig()
+```
+
+### Testing Database Setup:
+```python
+# conftest.py
+import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from models import Base
+
+@pytest.fixture(scope="session")
+def test_engine():
+    engine = create_engine("postgresql://test:test@localhost/eq_dkp_test")
+    return engine
+
+@pytest.fixture(scope="session")
+def test_tables(test_engine):
+    Base.metadata.create_all(bind=test_engine)
+    yield
+    Base.metadata.drop_all(bind=test_engine)
+
+@pytest.fixture
+def test_db(test_engine, test_tables):
+    connection = test_engine.connect()
+    transaction = connection.begin()
+    session = sessionmaker(bind=connection)()
+    
+    yield session
+    
+    session.close()
+    transaction.rollback()
+    connection.close()
+```
+
+This comprehensive SQLAlchemy and Alembic-based ERD provides a solid foundation for the FastAPI-based EQ DKP system while maintaining flexibility for future enhancements, ensuring data integrity, and supporting scalable development practices.

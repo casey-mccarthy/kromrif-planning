@@ -511,24 +511,27 @@ GET /admin/application-statistics
 ## 6. Data Requirements
 
 ### 6.1 Data Migration
-- Migration scripts from existing MySQL database
-- Data validation and cleanup
-- Preserve historical records
-- Maintain data relationships
+- **Alembic migration scripts** from existing MySQL database to new SQLAlchemy models
+- **Data validation and cleanup** using Pydantic models during migration
+- **Preserve historical records** with proper foreign key relationships in SQLAlchemy
+- **Maintain data relationships** through SQLAlchemy ORM relationships and constraints
 
 ### 6.2 Data Integrity
-- Foreign key constraints
-- Data validation rules
-- Backup and recovery procedures
-- Audit trail maintenance
+- **SQLAlchemy foreign key constraints** and relationship integrity
+- **Pydantic data validation** rules for API inputs and outputs
+- **Database-level constraints** defined in SQLAlchemy models
+- **SQLAlchemy event listeners** for audit trail maintenance
+- **Alembic-managed backup and recovery** procedures
 
 ## 7. Integration Requirements
 
 ### 7.1 Database
-- PostgreSQL or MySQL support
-- Connection pooling
-- Migration management (Alembic)
-- Database indexing strategy
+- **SQLAlchemy ORM** for database models and queries with proper relationships
+- **Alembic** for automated database migrations and schema versioning
+- **PostgreSQL** as primary database (MySQL support via SQLAlchemy dialects)
+- **Connection pooling** with configurable pool sizes and connection recycling
+- **Database indexing strategy** defined via SQLAlchemy `__table_args__`
+- **Environment-specific configurations** for development, staging, and production
 
 ### 7.2 External Services
 - **Discord API integration** for OAuth authentication and user data
@@ -554,11 +557,12 @@ GET /admin/application-statistics
 ## 9. Technical Constraints
 
 ### 9.1 Technology Stack
-- Python 3.8+
-- FastAPI framework
-- SQLAlchemy ORM
-- Pydantic for data validation
-- PostgreSQL or MySQL database
+- **Python 3.8+** with type hints throughout
+- **FastAPI framework** for API development
+- **SQLAlchemy 2.0+** ORM for database models and queries
+- **Alembic** for database migrations and schema management
+- **Pydantic v2** for data validation and serialization
+- **PostgreSQL** as primary database (with MySQL support via SQLAlchemy)
 
 ### 9.2 Development Standards
 - Type hints throughout codebase
