@@ -1,216 +1,239 @@
-# EQ DKP System - Planning Repository
+# Full Stack FastAPI Template
 
-This repository contains the planning documentation and Entity Relationship Diagrams (ERDs) for an EverQuest Dragon Kill Points (DKP) system. The system is designed to support both Django and FastAPI implementations with Discord integration for user authentication and role management.
+<a href="https://github.com/fastapi/full-stack-fastapi-template/actions?query=workflow%3ATest" target="_blank"><img src="https://github.com/fastapi/full-stack-fastapi-template/workflows/Test/badge.svg" alt="Test"></a>
+<a href="https://coverage-badge.samuelcolvin.workers.dev/redirect/fastapi/full-stack-fastapi-template" target="_blank"><img src="https://coverage-badge.samuelcolvin.workers.dev/fastapi/full-stack-fastapi-template.svg" alt="Coverage"></a>
 
-## Overview
+## Technology Stack and Features
 
-The EQ DKP system is a guild management tool that tracks member participation in raids, manages point-based loot distribution, and handles recruitment applications. The system is built around Discord users rather than game characters to support character transfers and maintain point continuity.
+- ⚡ [**FastAPI**](https://fastapi.tiangolo.com) for the Python backend API.
+    - 🧰 [SQLModel](https://sqlmodel.tiangolo.com) for the Python SQL database interactions (ORM).
+    - 🔍 [Pydantic](https://docs.pydantic.dev), used by FastAPI, for the data validation and settings management.
+    - 💾 [PostgreSQL](https://www.postgresql.org) as the SQL database.
+- 🚀 [React](https://react.dev) for the frontend.
+    - 💃 Using TypeScript, hooks, Vite, and other parts of a modern frontend stack.
+    - 🎨 [Chakra UI](https://chakra-ui.com) for the frontend components.
+    - 🤖 An automatically generated frontend client.
+    - 🧪 [Playwright](https://playwright.dev) for End-to-End testing.
+    - 🦇 Dark mode support.
+- 🐋 [Docker Compose](https://www.docker.com) for development and production.
+- 🔒 Secure password hashing by default.
+- 🔑 JWT (JSON Web Token) authentication.
+- 📫 Email based password recovery.
+- ✅ Tests with [Pytest](https://pytest.org).
+- 📞 [Traefik](https://traefik.io) as a reverse proxy / load balancer.
+- 🚢 Deployment instructions using Docker Compose, including how to set up a frontend Traefik proxy to handle automatic HTTPS certificates.
+- 🏭 CI (continuous integration) and CD (continuous deployment) based on GitHub Actions.
 
-## Key Features
+### Dashboard Login
 
-- **Discord OAuth Integration**: Primary authentication method using Discord accounts
-- **User-Centric Design**: Points and roles assigned to Discord users, not characters
-- **Dynamic Loot Pricing**: All items distributed via bidding system (no fixed costs)
-- **Comprehensive Attendance Tracking**: 30/60/90 day and lifetime attendance metrics
-- **Recruitment Management**: Application workflow with member voting system
-- **Character Transfer Support**: Character ownership can change without affecting user points
+[![API docs](img/login.png)](https://github.com/fastapi/full-stack-fastapi-template)
 
-## Architecture Diagrams
+### Dashboard - Admin
 
-### FastAPI Implementation Flow
+[![API docs](img/dashboard.png)](https://github.com/fastapi/full-stack-fastapi-template)
 
-```mermaid
-graph TB
-    subgraph "Authentication Layer"
-        A[Discord OAuth] --> B[User Model]
-        B --> C[API Keys]
-        C --> D[JWT/Token Auth]
-    end
-    
-    subgraph "Core Models"
-        B --> E[Characters]
-        B --> F[User Points Summary]
-        E --> G[Character Ownership History]
-    end
-    
-    subgraph "DKP System"
-        H[DKP Pools] --> I[Events]
-        I --> J[Raids]
-        J --> K[Raid Attendance]
-        K --> F
-        J --> L[Item Bids]
-        L --> M[Bid History]
-        L --> N[Loot Distribution]
-        N --> F
-        O[Point Adjustments] --> F
-    end
-    
-    subgraph "Recruitment System"
-        P[Guild Applications] --> Q[Application Votes]
-        P --> R[Application Comments]
-        S[Member Attendance Summary] --> Q
-    end
-    
-    subgraph "Discord Integration"
-        B --> T[Discord Sync Log]
-        U[Discord Bot] --> J
-        U --> L
-        U --> P
-    end
-    
-    subgraph "API Layer"
-        V[FastAPI Routes] --> W[SQLAlchemy ORM]
-        W --> X[PostgreSQL Database]
-        V --> Y[Pydantic Models]
-    end
-    
-    subgraph "Infrastructure"
-        Z[Alembic Migrations] --> X
-        AA[Redis Cache] --> V
-        BB[Background Tasks] --> S
-    end
-    
-    B -.-> E
-    B -.-> K
-    B -.-> N
-    B -.-> O
-    B -.-> Q
-    E -.-> K
-    E -.-> N
+### Dashboard - Create User
+
+[![API docs](img/dashboard-create.png)](https://github.com/fastapi/full-stack-fastapi-template)
+
+### Dashboard - Items
+
+[![API docs](img/dashboard-items.png)](https://github.com/fastapi/full-stack-fastapi-template)
+
+### Dashboard - User Settings
+
+[![API docs](img/dashboard-user-settings.png)](https://github.com/fastapi/full-stack-fastapi-template)
+
+### Dashboard - Dark Mode
+
+[![API docs](img/dashboard-dark.png)](https://github.com/fastapi/full-stack-fastapi-template)
+
+### Interactive API Documentation
+
+[![API docs](img/docs.png)](https://github.com/fastapi/full-stack-fastapi-template)
+
+## How To Use It
+
+You can **just fork or clone** this repository and use it as is.
+
+✨ It just works. ✨
+
+### How to Use a Private Repository
+
+If you want to have a private repository, GitHub won't allow you to simply fork it as it doesn't allow changing the visibility of forks.
+
+But you can do the following:
+
+- Create a new GitHub repo, for example `my-full-stack`.
+- Clone this repository manually, set the name with the name of the project you want to use, for example `my-full-stack`:
+
+```bash
+git clone git@github.com:fastapi/full-stack-fastapi-template.git my-full-stack
 ```
 
-### Django Implementation Flow
+- Enter into the new directory:
 
-```mermaid
-graph TB
-    subgraph "Authentication Layer"
-        A[Discord OAuth via Allauth] --> B[Extended User Model]
-        B --> C[DRF Token Auth]
-        C --> D[API Keys]
-    end
-    
-    subgraph "Core Models"
-        B --> E[Characters]
-        B --> F[User Points Summary]
-        E --> G[Character Ownership History]
-    end
-    
-    subgraph "DKP System"
-        H[DKP Pools] --> I[Events]
-        I --> J[Raids]
-        J --> K[Raid Attendance]
-        K --> F
-        J --> L[Item Bids]
-        L --> M[Bid History]
-        L --> N[Loot Distribution]
-        N --> F
-        O[Point Adjustments] --> F
-    end
-    
-    subgraph "Recruitment System"
-        P[Guild Applications] --> Q[Application Votes]
-        P --> R[Application Comments]
-        S[Member Attendance Summary] --> Q
-    end
-    
-    subgraph "Discord Integration"
-        B --> T[Discord Sync Log]
-        U[Discord Bot] --> J
-        U --> L
-        U --> P
-    end
-    
-    subgraph "Django Framework"
-        V[Django Views/ViewSets] --> W[Django ORM]
-        W --> X[PostgreSQL Database]
-        V --> Y[DRF Serializers]
-        Z[Django Admin] --> W
-    end
-    
-    subgraph "Infrastructure"
-        AA[Django Migrations] --> X
-        BB[Django Cache] --> V
-        CC[Celery Tasks] --> S
-        DD[Allauth Social Accounts] --> A
-    end
-    
-    B -.-> E
-    B -.-> K
-    B -.-> N
-    B -.-> O
-    B -.-> Q
-    E -.-> K
-    E -.-> N
+```bash
+cd my-full-stack
 ```
 
-## Implementation Details
+- Set the new origin to your new repository, copy it from the GitHub interface, for example:
 
-### Discord User-Centric Design
-
-Both implementations follow a **Discord user-centric** approach where:
-
-- **Points belong to Discord users**, not characters
-- **Character names in transaction tables are snapshots** (no foreign key constraints)
-- **Character ownership can be transferred** without affecting point balances
-- **Roles and permissions are assigned to Discord users** through the `role_group` field
-
-### Key Design Decisions
-
-1. **No Character Ranks**: Characters do not have ranks, groups, or roles - only Discord users have role assignments
-2. **Dynamic Item Pricing**: All items are distributed via bidding with no fixed costs
-3. **Attendance-Based Voting**: Only members with ≥15% 30-day attendance can vote on applications
-4. **Comprehensive Audit Trail**: All transactions maintain character name snapshots for historical reference
-
-### Database Schema Highlights
-
-- **User Model**: Extended with Discord integration fields and role management
-- **Character Model**: Simplified to focus on character data without rank complexity
-- **Points System**: Materialized views for efficient balance calculations
-- **Bidding System**: Real-time validation against user DKP balances
-- **Recruitment System**: Multi-stage workflow with attendance-based voting eligibility
-
-## File Structure
-
-```
-├── README.md                      # This file
-├── ERD_FastAPI_EQ_DKP.md         # FastAPI implementation ERD
-├── ERD_Django_EQ_DKP.md          # Django implementation ERD
-├── PRD_FastAPI_EQ_DKP.md         # FastAPI Product Requirements
-├── PRD_Django_EQ_DKP.md          # Django Product Requirements
-└── CLAUDE.md                     # Development context and workflow
+```bash
+git remote set-url origin git@github.com:octocat/my-full-stack.git
 ```
 
-## Development Workflow
+- Add this repo as another "remote" to allow you to get updates later:
 
-This repository uses Task Master AI for project planning and task management. The `.taskmaster/` directory contains configuration and task definitions for automated development workflows.
+```bash
+git remote add upstream git@github.com:fastapi/full-stack-fastapi-template.git
+```
 
-### Getting Started
+- Push the code to your new repository:
 
-1. Review the ERD documentation for your chosen implementation (Django or FastAPI)
-2. Set up Task Master AI following the instructions in `CLAUDE.md`
-3. Use the PRD files to generate implementation tasks
-4. Follow the database schema and business rules defined in the ERDs
+```bash
+git push -u origin master
+```
 
-## Business Rules Summary
+### Update From the Original Template
 
-### Core Principles
-- Discord OAuth as primary authentication
-- User-centric point and role management
-- Dynamic loot pricing through bidding
-- Character transfer support
-- Comprehensive attendance tracking
-- Automated Discord role synchronization
+After cloning the repository, and after doing changes, you might want to get the latest changes from this original template.
 
-### Security & Access Control
-- Role-based permissions (Officer, Recruiter, Developer, Member, Applicant, Guest)
-- API key management for programmatic access
-- Attendance-based voting eligibility
-- Secure Discord bot integration
+- Make sure you added the original repository as a remote, you can check it with:
 
-## Contributing
+```bash
+git remote -v
 
-This is a planning repository. Implementation will be done in separate repositories based on the chosen framework (Django or FastAPI).
+origin    git@github.com:octocat/my-full-stack.git (fetch)
+origin    git@github.com:octocat/my-full-stack.git (push)
+upstream    git@github.com:fastapi/full-stack-fastapi-template.git (fetch)
+upstream    git@github.com:fastapi/full-stack-fastapi-template.git (push)
+```
+
+- Pull the latest changes without merging:
+
+```bash
+git pull --no-commit upstream master
+```
+
+This will download the latest changes from this template without committing them, that way you can check everything is right before committing.
+
+- If there are conflicts, solve them in your editor.
+
+- Once you are done, commit the changes:
+
+```bash
+git merge --continue
+```
+
+### Configure
+
+You can then update configs in the `.env` files to customize your configurations.
+
+Before deploying it, make sure you change at least the values for:
+
+- `SECRET_KEY`
+- `FIRST_SUPERUSER_PASSWORD`
+- `POSTGRES_PASSWORD`
+
+You can (and should) pass these as environment variables from secrets.
+
+Read the [deployment.md](./deployment.md) docs for more details.
+
+### Generate Secret Keys
+
+Some environment variables in the `.env` file have a default value of `changethis`.
+
+You have to change them with a secret key, to generate secret keys you can run the following command:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+Copy the content and use that as password / secret key. And run that again to generate another secure key.
+
+## How To Use It - Alternative With Copier
+
+This repository also supports generating a new project using [Copier](https://copier.readthedocs.io).
+
+It will copy all the files, ask you configuration questions, and update the `.env` files with your answers.
+
+### Install Copier
+
+You can install Copier with:
+
+```bash
+pip install copier
+```
+
+Or better, if you have [`pipx`](https://pipx.pypa.io/), you can run it with:
+
+```bash
+pipx install copier
+```
+
+**Note**: If you have `pipx`, installing copier is optional, you could run it directly.
+
+### Generate a Project With Copier
+
+Decide a name for your new project's directory, you will use it below. For example, `my-awesome-project`.
+
+Go to the directory that will be the parent of your project, and run the command with your project's name:
+
+```bash
+copier copy https://github.com/fastapi/full-stack-fastapi-template my-awesome-project --trust
+```
+
+If you have `pipx` and you didn't install `copier`, you can run it directly:
+
+```bash
+pipx run copier copy https://github.com/fastapi/full-stack-fastapi-template my-awesome-project --trust
+```
+
+**Note** the `--trust` option is necessary to be able to execute a [post-creation script](https://github.com/fastapi/full-stack-fastapi-template/blob/master/.copier/update_dotenv.py) that updates your `.env` files.
+
+### Input Variables
+
+Copier will ask you for some data, you might want to have at hand before generating the project.
+
+But don't worry, you can just update any of that in the `.env` files afterwards.
+
+The input variables, with their default values (some auto generated) are:
+
+- `project_name`: (default: `"FastAPI Project"`) The name of the project, shown to API users (in .env).
+- `stack_name`: (default: `"fastapi-project"`) The name of the stack used for Docker Compose labels and project name (no spaces, no periods) (in .env).
+- `secret_key`: (default: `"changethis"`) The secret key for the project, used for security, stored in .env, you can generate one with the method above.
+- `first_superuser`: (default: `"admin@example.com"`) The email of the first superuser (in .env).
+- `first_superuser_password`: (default: `"changethis"`) The password of the first superuser (in .env).
+- `smtp_host`: (default: "") The SMTP server host to send emails, you can set it later in .env.
+- `smtp_user`: (default: "") The SMTP server user to send emails, you can set it later in .env.
+- `smtp_password`: (default: "") The SMTP server password to send emails, you can set it later in .env.
+- `emails_from_email`: (default: `"info@example.com"`) The email account to send emails from, you can set it later in .env.
+- `postgres_password`: (default: `"changethis"`) The password for the PostgreSQL database, stored in .env, you can generate one with the method above.
+- `sentry_dsn`: (default: "") The DSN for Sentry, if you are using it, you can set it later in .env.
+
+## Backend Development
+
+Backend docs: [backend/README.md](./backend/README.md).
+
+## Frontend Development
+
+Frontend docs: [frontend/README.md](./frontend/README.md).
+
+## Deployment
+
+Deployment docs: [deployment.md](./deployment.md).
+
+## Development
+
+General development docs: [development.md](./development.md).
+
+This includes using Docker Compose, custom local domains, `.env` configurations, etc.
+
+## Release Notes
+
+Check the file [release-notes.md](./release-notes.md).
 
 ## License
 
-TBD - Guild-specific implementation
+The Full Stack FastAPI Template is licensed under the terms of the MIT license.
