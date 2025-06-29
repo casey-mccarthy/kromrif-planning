@@ -172,32 +172,28 @@ This system will serve as the **single source of truth** for:
 - **Performance monitoring**: Display member consistency and participation trends across different time periods
 - **Automated attendance calculations**: Background tasks to update rolling averages for all active members
 
-### 3.7 Item and Bidding Management
+### 3.7 Item and Loot Management
 **Priority: High**
 
 #### 3.7.1 Item Database
 - Item name only
 - Simplified item tracking without categories or metadata
-- Item names for bidding (simplified model)
-- **No fixed point costs** - all items awarded via bidding
-- Historical bidding data for reference pricing
+- Item names for loot distribution tracking (simplified model)
 
-#### 3.7.2 In-Game Bidding System
-- **All bidding occurs in-game only** (no web-based bidding interface)
-- **Discord bot monitors game chat** for bid commands and manages auctions
-- **Discord bot determines winner and final bid amount in-game**
-- **Discord bot submits final bidding results** via API:
+#### 3.7.2 Loot Distribution System
+- **Loot distribution decisions made in-game by guild leadership**
+- **Discord bot submits final loot awards** via API:
   - Discord user ID
   - Item name
-  - Winning bid amount
+  - Points spent for item
   - Character name context
   - Raid context
 
 #### 3.7.3 Loot Distribution Processing
-- **API receives bid results from Discord bot**
-- **Deduct winning bid amount from Discord user balance**
-- Record complete bidding history and final winner
-- Loot audit trail with bid progression
+- **API receives loot awards from Discord bot**
+- **Deduct point cost from Discord user balance**
+- Record loot awards and final recipient
+- Loot audit trail with award history
 - Point expenditure validation against user balance
 
 ### 3.8 Point Adjustments
@@ -233,13 +229,12 @@ This system will serve as the **single source of truth** for:
 - Member linking and unlinking (User to Discord ID association)
 - Bulk member status updates
 
-#### 3.9.2 Discord Bot Bidding Integration
-- **Real-time DKP balance queries** for bid validation
-- **Bid submission API** for Discord bot to submit results
-- **Active bidding session tracking** for ongoing auctions
-- **Bid validation endpoints** to prevent overbidding
+#### 3.9.2 Discord Bot Loot Integration
+- **Real-time DKP balance queries** for loot award validation
+- **Loot award API** for Discord bot to submit results
+- **Point validation endpoints** to prevent overspending
 - **Item award processing** with automatic point deduction
-- **Bidding history tracking** for audit and analytics
+- **Loot distribution tracking** for audit and analytics
 
 #### 3.9.3 Discord Bot API Endpoints
 - GET endpoints for current roster and member status
@@ -247,7 +242,7 @@ This system will serve as the **single source of truth** for:
 - Authentication for Discord bot access via bot API keys
 - Member status change audit logging
 - Error handling and retry mechanisms
-- **Bidding system API access** with extended permissions
+- **Loot distribution API access** with extended permissions
 
 #### 3.9.4 Member Linking
 - Discord ID association with user accounts
@@ -446,7 +441,7 @@ GET /attendance/leaderboard/90-day
 GET /attendance/leaderboard/lifetime
 ```
 
-#### 5.2.7 Items and Bidding
+#### 5.2.7 Items and Loot Distribution
 ```
 # Item Management
 GET /items
@@ -454,16 +449,12 @@ POST /items
 GET /items/{item_id}
 PUT /items/{item_id}
 DELETE /items/{item_id}
-GET /items/{item_id}/bid-history
+GET /items/{item_id}/distribution-history
 
-# Bidding System (Discord Bot API)
-POST /bidding/start-bid
-GET /bidding/active
-POST /bidding/place-bid
-POST /bidding/close-bid
-POST /bidding/award-item
-GET /bidding/{bid_session_id}
-GET /bidding/user/{discord_id}/max-bid
+# Loot Distribution System (Discord Bot API)
+POST /loot/award-item
+GET /loot/user/{discord_id}/balance
+GET /loot/distribution-history
 ```
 
 #### 5.2.8 Discord Integration
@@ -476,11 +467,10 @@ DELETE /discord/unlink-member/{user_id}
 GET /discord/audit-log
 POST /discord/webhooks/member-update
 
-# Discord Bot Bidding Integration
-POST /discord/bid-results
+# Discord Bot Loot Integration
+POST /discord/loot-award
 GET /discord/user/{discord_id}/balance
-POST /discord/validate-bid
-GET /discord/active-bids
+POST /discord/validate-points
 ```
 
 #### 5.2.9 Recruitment Applications

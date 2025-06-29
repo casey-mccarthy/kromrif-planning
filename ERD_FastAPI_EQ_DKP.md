@@ -203,7 +203,7 @@ User.characters = relationship("Character", back_populates="user")
 **Note**: The remaining models (DKP Pools, Events, Raids, Items, etc.) follow the same SQLAlchemy pattern with proper relationships, constraints, and indexes. For brevity, they are not all shown here, but would include:
 
 - DKPPool, Event, Raid, RaidAttendance
-- Item, ItemBid, BidHistory, LootDistribution  
+- Item, LootDistribution  
 - PointAdjustment, UserPointsSummary
 - CharacterOwnershipHistory, DiscordSyncLog
 - GuildApplication, ApplicationVote, ApplicationComment, MemberAttendanceSummary
@@ -313,7 +313,7 @@ CREATE INDEX idx_raid_attendance_char_class ON raid_attendance(character_class);
 ```
 
 ### 9. Items Table
-**Purpose**: Store information about items (no fixed costs - all awarded via bidding)
+**Purpose**: Store information about items for loot distribution tracking
 
 ```sql
 CREATE TABLE items (
@@ -331,105 +331,22 @@ CREATE INDEX idx_items_name ON items(name);
 CREATE INDEX idx_items_created_at ON items(created_at);
 ```
 
-### 10. Item Bids Table
-**Purpose**: Track bidding sessions and bid history for items
-
-```sql
-CREATE TABLE item_bids (
-    id SERIAL PRIMARY KEY,
-    raid_id INTEGER NOT NULL REFERENCES raids(id) ON DELETE RESTRICT,
-    item_id INTEGER REFERENCES items(id) ON DELETE SET NULL,
-    item_name VARCHAR(200) NOT NULL,  -- Snapshot in case item not in database
-    bid_session_id VARCHAR(100) UNIQUE NOT NULL,  -- Discord bot generated session ID
-    
-    -- Bidding session info
-    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    closed_at TIMESTAMP NULL,
-    is_active BOOLEAN DEFAULT TRUE,
-    
-    -- Winner information (Discord user focused, no hard character link)
-    winning_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-    winning_character_name VARCHAR(50),  -- Character name snapshot, no FK constraint
-    winning_character_class VARCHAR(50),  -- Character class for reference
-    winning_bid_amount DECIMAL(10,2),
-    
-    -- Session metadata
-    created_by_bot BOOLEAN DEFAULT TRUE,
-    notes TEXT,
-    
-    -- Constraints
-    CONSTRAINT item_bids_session_id_length CHECK (LENGTH(bid_session_id) >= 10),
-    CONSTRAINT item_bids_winning_bid_positive CHECK (winning_bid_amount >= 0 OR winning_bid_amount IS NULL),
-    CONSTRAINT item_bids_closed_has_winner CHECK (
-        (is_active = TRUE) OR 
-        (is_active = FALSE AND winning_user_id IS NOT NULL AND winning_bid_amount IS NOT NULL)
-    )
-);
-
--- Indexes
-CREATE INDEX idx_item_bids_raid ON item_bids(raid_id);
-CREATE INDEX idx_item_bids_item ON item_bids(item_id);
-CREATE INDEX idx_item_bids_session ON item_bids(bid_session_id);
-CREATE INDEX idx_item_bids_active ON item_bids(is_active);
-CREATE INDEX idx_item_bids_winner ON item_bids(winning_user_id);
-CREATE INDEX idx_item_bids_started ON item_bids(started_at);
-CREATE INDEX idx_item_bids_closed ON item_bids(closed_at);
-```
-
-### 11. Bid History Table
-**Purpose**: Track individual bids placed by Discord users (no hard character links)
-
-```sql
-CREATE TABLE bid_history (
-    id SERIAL PRIMARY KEY,
-    bid_session_id VARCHAR(100) NOT NULL REFERENCES item_bids(bid_session_id) ON DELETE CASCADE,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,  -- Discord user placing bid
-    
-    -- Character reference data (snapshot, no foreign key constraint)
-    character_name VARCHAR(50),  -- Character name used for bid
-    character_class VARCHAR(50),  -- Character class for reference
-    
-    -- Bid details
-    bid_amount DECIMAL(10,2) NOT NULL,
-    user_balance_at_bid DECIMAL(10,2) NOT NULL,  -- User's balance when bid was placed
-    is_valid BOOLEAN DEFAULT TRUE,  -- False if bid exceeded balance
-    placed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    discord_message_id VARCHAR(50),  -- Reference to Discord message
-    
-    -- Constraints
-    CONSTRAINT bid_history_amount_positive CHECK (bid_amount > 0),
-    CONSTRAINT bid_history_balance_positive CHECK (user_balance_at_bid >= 0),
-    CONSTRAINT bid_history_valid_amount CHECK (
-        (is_valid = FALSE) OR (is_valid = TRUE AND bid_amount <= user_balance_at_bid)
-    )
-);
-
--- Indexes
-CREATE INDEX idx_bid_history_session ON bid_history(bid_session_id);
-CREATE INDEX idx_bid_history_user ON bid_history(user_id);
-CREATE INDEX idx_bid_history_char_name ON bid_history(character_name);
-CREATE INDEX idx_bid_history_amount ON bid_history(bid_amount);
-CREATE INDEX idx_bid_history_placed ON bid_history(placed_at);
-CREATE INDEX idx_bid_history_valid ON bid_history(is_valid);
-```
-
-### 12. Loot Distribution Table
-**Purpose**: Track final item awards from bidding results (Discord user focused, no hard character links)
+### 10. Loot Distribution Table
+**Purpose**: Track final item awards to characters (Discord user focused, no hard character links)
 
 ```sql
 CREATE TABLE loot_distribution (
     id SERIAL PRIMARY KEY,
     raid_id INTEGER NOT NULL REFERENCES raids(id) ON DELETE RESTRICT,
-    bid_session_id VARCHAR(100) REFERENCES item_bids(bid_session_id) ON DELETE SET NULL,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,  -- Points deducted from Discord user
     item_id INTEGER REFERENCES items(id) ON DELETE SET NULL,
     dkp_pool_id INTEGER NOT NULL REFERENCES dkp_pools(id) ON DELETE RESTRICT,
     
     -- Item and character reference data (snapshots, no FK constraints)
-    item_name VARCHAR(200) NOT NULL,  -- Item name from bid results
+    item_name VARCHAR(200) NOT NULL,  -- Item name
     character_name VARCHAR(50) NOT NULL,  -- Character who received item (reference only)
     character_class VARCHAR(50),  -- Character class for reference
-    points_spent DECIMAL(10,2) NOT NULL,  -- Winning bid amount
+    points_spent DECIMAL(10,2) NOT NULL,  -- Points spent for item
     
     -- Source tracking
     submitted_by_bot BOOLEAN DEFAULT TRUE,  -- Submitted via Discord bot API
@@ -444,7 +361,6 @@ CREATE TABLE loot_distribution (
 
 -- Indexes
 CREATE INDEX idx_loot_raid ON loot_distribution(raid_id);
-CREATE INDEX idx_loot_bid_session ON loot_distribution(bid_session_id);
 CREATE INDEX idx_loot_user ON loot_distribution(user_id);
 CREATE INDEX idx_loot_item ON loot_distribution(item_id);
 CREATE INDEX idx_loot_pool ON loot_distribution(dkp_pool_id);
@@ -456,7 +372,7 @@ CREATE INDEX idx_loot_bot_submission ON loot_distribution(submitted_by_bot);
 CREATE INDEX idx_loot_date ON loot_distribution(created_at);
 ```
 
-### 13. Point Adjustments Table
+### 11. Point Adjustments Table
 **Purpose**: Track manual point adjustments to Discord user accounts (no hard character links)
 
 ```sql
@@ -491,7 +407,7 @@ CREATE INDEX idx_point_adjustments_date ON point_adjustments(created_at);
 CREATE INDEX idx_point_adjustments_created_by ON point_adjustments(created_by);
 ```
 
-### 14. User Points Summary Table
+### 12. User Points Summary Table
 **Purpose**: Materialized view/table for efficient user point balance queries
 
 ```sql
@@ -517,7 +433,7 @@ CREATE INDEX idx_user_points_pool ON user_points_summary(dkp_pool_id);
 CREATE INDEX idx_user_points_balance ON user_points_summary(current_balance);
 ```
 
-### 15. Character Ownership History Table
+### 13. Character Ownership History Table
 **Purpose**: Track character reassignments between Discord users
 
 ```sql
@@ -543,7 +459,7 @@ CREATE INDEX idx_ownership_transferred_by ON character_ownership_history(transfe
 ```
 
 
-### 17. Discord Sync Log Table
+### 14. Discord Sync Log Table
 **Purpose**: Track Discord role synchronization attempts and results
 
 ```sql
@@ -570,7 +486,7 @@ CREATE INDEX idx_discord_sync_status ON discord_sync_log(status);
 CREATE INDEX idx_discord_sync_date ON discord_sync_log(created_at);
 ```
 
-### 18. Guild Applications Table
+### 15. Guild Applications Table
 **Purpose**: Store recruitment applications from prospective members
 
 ```sql
@@ -616,7 +532,7 @@ CREATE INDEX idx_applications_voting_dates ON guild_applications(voting_start_da
 CREATE INDEX idx_applications_webhook_sent ON guild_applications(discord_webhook_sent);
 ```
 
-### 19. Application Votes Table
+### 16. Application Votes Table
 **Purpose**: Track all member votes on guild applications (accept all, count only ≥15% attendance)
 
 ```sql
@@ -649,7 +565,7 @@ CREATE INDEX idx_app_votes_changes ON application_votes(vote_changes);
 CREATE INDEX idx_app_votes_date ON application_votes(created_at);
 ```
 
-### 20. Application Comments Table
+### 17. Application Comments Table
 **Purpose**: Store review comments and feedback on applications
 
 ```sql
@@ -672,7 +588,7 @@ CREATE INDEX idx_app_comments_internal ON application_comments(is_internal);
 CREATE INDEX idx_app_comments_date ON application_comments(created_at);
 ```
 
-### 21. Member Attendance Summary Table
+### 18. Member Attendance Summary Table
 **Purpose**: Track 30/60/90 day and lifetime rolling attendance percentages for voting eligibility and member performance
 
 ```sql
@@ -781,15 +697,10 @@ CREATE INDEX idx_attendance_summary_updated ON member_attendance_summary(last_up
 18. **Users → Application Votes**: One member can vote on multiple applications
 19. **Users → Application Comments**: One user can comment on multiple applications
 20. **Users → Member Attendance Summary**: One user can have multiple attendance records
-21. **Raids → Item Bids**: One raid can have multiple bidding sessions
-22. **Item Bids → Bid History**: One bidding session can have multiple individual bids
-23. **Users → Bid History**: One user can place bids in multiple sessions
-24. **Users → Item Bids**: One user can win multiple bidding sessions
 
 ### Many-to-Many Relationships:
 1. **Users ↔ Raids** (via Raid Attendance): Users can attend multiple raids via different characters, raids can have multiple users
 2. **Users ↔ Items** (via Loot Distribution): Users can receive multiple items via different characters, items can go to multiple users
-3. **Users ↔ Item Bids** (via Bid History): Users can bid on multiple items, items can receive bids from multiple users
 4. **Members ↔ Applications** (via Application Votes): Eligible members can vote on multiple applications, applications can receive votes from multiple members
 
 **Note**: While character names are referenced in attendance and loot tables, all relationships are fundamentally user-centric to support character transfers.
@@ -805,12 +716,8 @@ CREATE INDEX idx_attendance_summary_updated ON member_attendance_summary(last_up
 6. **Character ownership can be transferred without affecting point balances**
 7. Points earned/spent must be non-negative
 8. Only active characters can participate in raids
-9. **Items have no fixed costs** - all distribution via bidding
-10. **Bids cannot exceed user's current DKP balance**
-11. **Bidding sessions must be associated with active raids**
-12. **Only one active bid session per item per raid**
-13. **Bid amounts must be positive (greater than 0)**
-14. **Loot distribution requires completed bidding session**
+9. **Items are distributed based on guild loot rules (no bidding system)**
+10. **Loot distribution records item awards and point deductions**
 15. Discord IDs must be unique across all users and are required for all accounts
 16. Users must have exactly one role group (officer, recruiter, developer, member, applicant, guest)
 17. **Guests and applicants cannot access any voting data or participate in voting**
@@ -839,7 +746,7 @@ CREATE INDEX idx_attendance_summary_updated ON member_attendance_summary(last_up
 8. Failed authentication attempts are logged and rate-limited
 
 ### Character Transfer Rules:
-1. **Discord user primacy**: All points, bids, and transactions are linked to Discord users, not characters
+1. **Discord user primacy**: All points and transactions are linked to Discord users, not characters
 2. **Character name snapshots**: Transaction tables store character names as reference data only
 3. **No hard character links**: Transaction tables have no foreign key constraints to character table
 4. **Transfer flexibility**: Characters can be reassigned between Discord users without breaking transaction history
@@ -847,17 +754,6 @@ CREATE INDEX idx_attendance_summary_updated ON member_attendance_summary(last_up
 6. **Point continuity**: Discord user point balances are unaffected by character ownership changes
 7. **Lookup methodology**: Character names are used to identify current Discord user ownership at transaction time
 
-### Bidding Rules:
-1. **Dynamic pricing**: Items have no fixed costs, all pricing determined by bidding
-2. **Balance validation**: Users cannot bid more than their current DKP balance
-3. **Single active session**: Only one bidding session per item per raid
-4. **Minimum bid**: All bids must be positive (> 0 DKP)
-5. **Session closure**: Bidding sessions must be explicitly closed to determine winner
-6. **Automatic deduction**: Winning bid amount automatically deducted from user balance
-7. **Bid history preservation**: All bids recorded for audit and analytics
-8. **Discord bot integration**: Bidding controlled and processed via Discord bot
-9. **Real-time validation**: API validates bids against current user balance
-10. **Session timeouts**: Bidding sessions can have time limits
 
 ### Calculation Rules:
 1. Current balance = Total Earned - Total Spent + Total Adjustments
@@ -1160,7 +1056,7 @@ from .user import User, APIKey
 from .character import Character, CharacterOwnershipHistory
 from .dkp import DKPPool, UserPointsSummary, PointAdjustment
 from .event import Event, Raid, RaidAttendance
-from .item import Item, ItemBid, BidHistory, LootDistribution
+from .item import Item, LootDistribution
 from .application import GuildApplication, ApplicationVote, ApplicationComment
 from .discord import DiscordSyncLog
 from .analytics import MemberAttendanceSummary
@@ -1168,7 +1064,7 @@ from .analytics import MemberAttendanceSummary
 __all__ = [
     "Base", "User", "APIKey", "Character", "CharacterOwnershipHistory",
     "DKPPool", "UserPointsSummary", "PointAdjustment", "Event", "Raid", 
-    "RaidAttendance", "Item", "ItemBid", "BidHistory", "LootDistribution",
+    "RaidAttendance", "Item", "LootDistribution",
     "GuildApplication", "ApplicationVote", "ApplicationComment",
     "DiscordSyncLog", "MemberAttendanceSummary"
 ]
