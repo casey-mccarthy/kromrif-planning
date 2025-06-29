@@ -1308,11 +1308,11 @@ class ApplicationComment(models.Model):
 ```
 
 ### 21. Member Attendance Summary Model
-**Purpose**: Track 30-day rolling attendance percentages for voting eligibility
+**Purpose**: Track 30/60/90 day and lifetime rolling attendance percentages for voting eligibility and member performance
 
 ```python
 class MemberAttendanceSummary(models.Model):
-    """30-day rolling attendance for voting eligibility"""
+    """30/60/90 day and lifetime rolling attendance for voting eligibility and performance tracking"""
     
     user = models.ForeignKey(
         User, 
@@ -1327,6 +1327,8 @@ class MemberAttendanceSummary(models.Model):
         related_name='attendance_summaries'
     )
     calculation_date = models.DateField()
+    
+    # 30-day metrics
     total_raids_30_days = models.PositiveIntegerField(
         default=0,
         validators=[models.MinValueValidator(0)]
@@ -1335,6 +1337,37 @@ class MemberAttendanceSummary(models.Model):
         default=0,
         validators=[models.MinValueValidator(0)]
     )
+    
+    # 60-day metrics
+    total_raids_60_days = models.PositiveIntegerField(
+        default=0,
+        validators=[models.MinValueValidator(0)]
+    )
+    attended_raids_60_days = models.PositiveIntegerField(
+        default=0,
+        validators=[models.MinValueValidator(0)]
+    )
+    
+    # 90-day metrics
+    total_raids_90_days = models.PositiveIntegerField(
+        default=0,
+        validators=[models.MinValueValidator(0)]
+    )
+    attended_raids_90_days = models.PositiveIntegerField(
+        default=0,
+        validators=[models.MinValueValidator(0)]
+    )
+    
+    # Lifetime metrics
+    total_raids_lifetime = models.PositiveIntegerField(
+        default=0,
+        validators=[models.MinValueValidator(0)]
+    )
+    attended_raids_lifetime = models.PositiveIntegerField(
+        default=0,
+        validators=[models.MinValueValidator(0)]
+    )
+    
     last_updated = models.DateTimeField(auto_now=True)
     
     class Meta:
@@ -1349,24 +1382,57 @@ class MemberAttendanceSummary(models.Model):
         constraints = [
             models.CheckConstraint(
                 check=models.Q(attended_raids_30_days__lte=models.F('total_raids_30_days')),
-                name='attendance_raids_valid'
+                name='attendance_30_days_valid'
+            ),
+            models.CheckConstraint(
+                check=models.Q(attended_raids_60_days__lte=models.F('total_raids_60_days')),
+                name='attendance_60_days_valid'
+            ),
+            models.CheckConstraint(
+                check=models.Q(attended_raids_90_days__lte=models.F('total_raids_90_days')),
+                name='attendance_90_days_valid'
+            ),
+            models.CheckConstraint(
+                check=models.Q(attended_raids_lifetime__lte=models.F('total_raids_lifetime')),
+                name='attendance_lifetime_valid'
             ),
         ]
 
     @property
-    def attendance_percentage(self):
-        """Calculate attendance percentage"""
+    def attendance_percentage_30_days(self):
+        """Calculate 30-day attendance percentage"""
         if self.total_raids_30_days == 0:
             return 0.0
         return round((self.attended_raids_30_days / self.total_raids_30_days) * 100, 2)
 
     @property
+    def attendance_percentage_60_days(self):
+        """Calculate 60-day attendance percentage"""
+        if self.total_raids_60_days == 0:
+            return 0.0
+        return round((self.attended_raids_60_days / self.total_raids_60_days) * 100, 2)
+
+    @property
+    def attendance_percentage_90_days(self):
+        """Calculate 90-day attendance percentage"""
+        if self.total_raids_90_days == 0:
+            return 0.0
+        return round((self.attended_raids_90_days / self.total_raids_90_days) * 100, 2)
+
+    @property
+    def attendance_percentage_lifetime(self):
+        """Calculate lifetime attendance percentage"""
+        if self.total_raids_lifetime == 0:
+            return 0.0
+        return round((self.attended_raids_lifetime / self.total_raids_lifetime) * 100, 2)
+
+    @property
     def is_voting_eligible(self):
-        """Check voting eligibility (≥15% attendance)"""
-        return self.attendance_percentage >= 15.0
+        """Check voting eligibility (≥15% 30-day attendance)"""
+        return self.attendance_percentage_30_days >= 15.0
 
     def __str__(self):
-        return f"{self.user.discord_username} - {self.attendance_percentage}% ({self.calculation_date})"
+        return f"{self.user.discord_username} - 30d: {self.attendance_percentage_30_days}% ({self.calculation_date})"
 ```
 
 ## Django Custom Managers and QuerySets

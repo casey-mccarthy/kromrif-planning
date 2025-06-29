@@ -163,6 +163,9 @@ This system will serve as the **single source of truth** for:
 - Bulk attendance management
 - Late arrival/early departure tracking
 - Attendance-based point awards to users
+- **Multi-period attendance tracking**: Calculate and maintain 30/60/90 day rolling averages and lifetime statistics
+- **Performance monitoring**: Display member consistency and participation trends across different time periods
+- **Automated attendance calculations**: Background tasks to update rolling averages for all active members
 
 ### 3.7 Item and Bidding Management
 **Priority: High**
@@ -271,6 +274,7 @@ This system will serve as the **single source of truth** for:
 - Trial acceptance by recruiters (immediate Discord webhook notification)
 - Member voting period (48 hours) initiated by recruiters
 - Voting eligibility: ≥15% raid attendance in last 30 days
+- Attendance tracking: 30/60/90 day rolling averages and lifetime statistics for performance monitoring
 - One vote per member (changeable during voting period)
 - Automatic character creation upon vote approval
 - Trial member period management
@@ -421,6 +425,15 @@ GET /points/history/user/{user_id}
 GET /points/leaderboard/{dkp_pool_id}
 POST /points/parse-attendance
 GET /points/character-attribution/{character_name}
+GET /attendance/user/{user_id}/summary
+GET /attendance/user/{user_id}/30-day
+GET /attendance/user/{user_id}/60-day
+GET /attendance/user/{user_id}/90-day
+GET /attendance/user/{user_id}/lifetime
+GET /attendance/leaderboard/30-day
+GET /attendance/leaderboard/60-day
+GET /attendance/leaderboard/90-day
+GET /attendance/leaderboard/lifetime
 ```
 
 #### 5.2.7 Items and Bidding

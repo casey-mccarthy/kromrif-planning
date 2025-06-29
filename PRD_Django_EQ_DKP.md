@@ -165,6 +165,9 @@ This system will serve as the **single source of truth** for:
 - Bulk attendance management via Django admin actions
 - Late arrival/early departure tracking (CharField choices)
 - Attendance-based point awards to users (automatic via Django signals)
+- **Multi-period attendance tracking**: Calculate and maintain 30/60/90 day rolling averages and lifetime statistics
+- **Performance monitoring**: Display member consistency and participation trends across different time periods
+- **Automated attendance calculations**: Daily background tasks to update rolling averages for all active members
 
 ### 3.7 Item and Bidding Management
 **Priority: High**
@@ -274,6 +277,7 @@ This system will serve as the **single source of truth** for:
 - Trial acceptance by recruiters (Django admin action + Discord webhook via signals)
 - Member voting period (48 hours) initiated by recruiters (Django datetime fields)
 - Voting eligibility: ≥15% raid attendance in last 30 days (MemberAttendanceSummary model)
+- Attendance tracking: 30/60/90 day rolling averages and lifetime statistics for performance monitoring
 - One vote per member (unique constraint on ApplicationVote model)
 - Automatic character creation upon vote approval (Django signals)
 - Trial member period management (Django datetime fields + Celery tasks)
@@ -426,6 +430,15 @@ path('api/points/history/user/<int:user_id>/', 'UserPointHistoryView.as_view()')
 path('api/points/leaderboard/<int:dkp_pool_id>/', 'LeaderboardView.as_view()')
 path('api/points/parse-attendance/', 'ParseAttendanceView.as_view()')
 path('api/points/character-attribution/<str:character_name>/', 'CharacterAttributionView.as_view()')
+path('api/attendance/user/<int:user_id>/summary/', 'UserAttendanceSummaryView.as_view()')  # GET
+path('api/attendance/user/<int:user_id>/30-day/', 'UserAttendance30DayView.as_view()')  # GET  
+path('api/attendance/user/<int:user_id>/60-day/', 'UserAttendance60DayView.as_view()')  # GET
+path('api/attendance/user/<int:user_id>/90-day/', 'UserAttendance90DayView.as_view()')  # GET
+path('api/attendance/user/<int:user_id>/lifetime/', 'UserAttendanceLifetimeView.as_view()')  # GET
+path('api/attendance/leaderboard/30-day/', 'AttendanceLeaderboard30DayView.as_view()')  # GET
+path('api/attendance/leaderboard/60-day/', 'AttendanceLeaderboard60DayView.as_view()')  # GET
+path('api/attendance/leaderboard/90-day/', 'AttendanceLeaderboard90DayView.as_view()')  # GET
+path('api/attendance/leaderboard/lifetime/', 'AttendanceLeaderboardLifetimeView.as_view()')  # GET
 ```
 
 #### 5.2.7 Items and Bidding (Django Models + DRF ViewSets)

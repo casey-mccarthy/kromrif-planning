@@ -728,7 +728,7 @@ CREATE INDEX idx_app_comments_date ON application_comments(created_at);
 ```
 
 ### 21. Member Attendance Summary Table
-**Purpose**: Track 30-day rolling attendance percentages for voting eligibility
+**Purpose**: Track 30/60/90 day and lifetime rolling attendance percentages for voting eligibility and member performance
 
 ```sql
 CREATE TABLE member_attendance_summary (
@@ -736,26 +736,69 @@ CREATE TABLE member_attendance_summary (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     character_id INTEGER REFERENCES characters(id) ON DELETE SET NULL,
     calculation_date DATE NOT NULL,
+    
+    -- 30-day metrics
     total_raids_30_days INTEGER NOT NULL DEFAULT 0,
     attended_raids_30_days INTEGER NOT NULL DEFAULT 0,
-    attendance_percentage DECIMAL(5,2) GENERATED ALWAYS AS (
+    attendance_percentage_30_days DECIMAL(5,2) GENERATED ALWAYS AS (
         CASE 
             WHEN total_raids_30_days = 0 THEN 0.0
             ELSE ROUND((attended_raids_30_days::DECIMAL / total_raids_30_days::DECIMAL) * 100, 2)
         END
     ) STORED,
+    
+    -- 60-day metrics
+    total_raids_60_days INTEGER NOT NULL DEFAULT 0,
+    attended_raids_60_days INTEGER NOT NULL DEFAULT 0,
+    attendance_percentage_60_days DECIMAL(5,2) GENERATED ALWAYS AS (
+        CASE 
+            WHEN total_raids_60_days = 0 THEN 0.0
+            ELSE ROUND((attended_raids_60_days::DECIMAL / total_raids_60_days::DECIMAL) * 100, 2)
+        END
+    ) STORED,
+    
+    -- 90-day metrics
+    total_raids_90_days INTEGER NOT NULL DEFAULT 0,
+    attended_raids_90_days INTEGER NOT NULL DEFAULT 0,
+    attendance_percentage_90_days DECIMAL(5,2) GENERATED ALWAYS AS (
+        CASE 
+            WHEN total_raids_90_days = 0 THEN 0.0
+            ELSE ROUND((attended_raids_90_days::DECIMAL / total_raids_90_days::DECIMAL) * 100, 2)
+        END
+    ) STORED,
+    
+    -- Lifetime metrics
+    total_raids_lifetime INTEGER NOT NULL DEFAULT 0,
+    attended_raids_lifetime INTEGER NOT NULL DEFAULT 0,
+    attendance_percentage_lifetime DECIMAL(5,2) GENERATED ALWAYS AS (
+        CASE 
+            WHEN total_raids_lifetime = 0 THEN 0.0
+            ELSE ROUND((attended_raids_lifetime::DECIMAL / total_raids_lifetime::DECIMAL) * 100, 2)
+        END
+    ) STORED,
+    
+    -- Voting eligibility based on 30-day attendance
     is_voting_eligible BOOLEAN GENERATED ALWAYS AS (
         CASE 
             WHEN total_raids_30_days = 0 THEN FALSE
             ELSE ROUND((attended_raids_30_days::DECIMAL / total_raids_30_days::DECIMAL) * 100, 2) >= 15.0
         END
     ) STORED,
+    
     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
     -- Constraints
     CONSTRAINT attendance_summary_unique UNIQUE (user_id, calculation_date),
-    CONSTRAINT attendance_raids_valid CHECK (attended_raids_30_days <= total_raids_30_days),
-    CONSTRAINT attendance_counts_positive CHECK (total_raids_30_days >= 0 AND attended_raids_30_days >= 0)
+    CONSTRAINT attendance_30_days_valid CHECK (attended_raids_30_days <= total_raids_30_days),
+    CONSTRAINT attendance_60_days_valid CHECK (attended_raids_60_days <= total_raids_60_days),
+    CONSTRAINT attendance_90_days_valid CHECK (attended_raids_90_days <= total_raids_90_days),
+    CONSTRAINT attendance_lifetime_valid CHECK (attended_raids_lifetime <= total_raids_lifetime),
+    CONSTRAINT attendance_counts_positive CHECK (
+        total_raids_30_days >= 0 AND attended_raids_30_days >= 0 AND
+        total_raids_60_days >= 0 AND attended_raids_60_days >= 0 AND
+        total_raids_90_days >= 0 AND attended_raids_90_days >= 0 AND
+        total_raids_lifetime >= 0 AND attended_raids_lifetime >= 0
+    )
 );
 
 -- Indexes
@@ -763,7 +806,10 @@ CREATE INDEX idx_attendance_summary_user ON member_attendance_summary(user_id);
 CREATE INDEX idx_attendance_summary_character ON member_attendance_summary(character_id);
 CREATE INDEX idx_attendance_summary_date ON member_attendance_summary(calculation_date);
 CREATE INDEX idx_attendance_summary_eligible ON member_attendance_summary(is_voting_eligible);
-CREATE INDEX idx_attendance_summary_percentage ON member_attendance_summary(attendance_percentage);
+CREATE INDEX idx_attendance_summary_30d ON member_attendance_summary(attendance_percentage_30_days);
+CREATE INDEX idx_attendance_summary_60d ON member_attendance_summary(attendance_percentage_60_days);
+CREATE INDEX idx_attendance_summary_90d ON member_attendance_summary(attendance_percentage_90_days);
+CREATE INDEX idx_attendance_summary_lifetime ON member_attendance_summary(attendance_percentage_lifetime);
 CREATE INDEX idx_attendance_summary_updated ON member_attendance_summary(last_updated);
 ```
 
