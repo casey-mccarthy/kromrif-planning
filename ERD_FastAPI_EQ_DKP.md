@@ -168,7 +168,6 @@ class Character(Base):
     name = Column(String(50), unique=True, nullable=False, index=True)
     character_class = Column(String(50), nullable=True)
     level = Column(Integer, default=1, nullable=False)
-    rank_id = Column(Integer, ForeignKey("ranks.id", ondelete="SET NULL"), nullable=True, index=True)
     is_main = Column(Boolean, default=False, nullable=False)
     main_character_id = Column(Integer, ForeignKey("characters.id", ondelete="SET NULL"), nullable=True, index=True)
     is_active = Column(Boolean, default=True, nullable=False, index=True)
@@ -178,7 +177,6 @@ class Character(Base):
     
     # Relationships
     user = relationship("User", back_populates="characters")
-    rank = relationship("Rank", back_populates="characters")
     main_character = relationship("Character", remote_side=[id], back_populates="alts")
     alts = relationship("Character", back_populates="main_character")
     
@@ -191,7 +189,6 @@ class Character(Base):
         Index('idx_characters_user_id', 'user_id'),
         Index('idx_characters_main_id', 'main_character_id'),
         Index('idx_characters_active', 'is_active'),
-        Index('idx_characters_rank', 'rank_id'),
     )
 
     def __repr__(self):
@@ -201,44 +198,14 @@ class Character(Base):
 User.characters = relationship("Character", back_populates="user")
 ```
 
-### 4. Ranks Model
-**Purpose**: Define character ranks within the guild
 
-```python
-class Rank(Base):
-    """Character ranks within the guild"""
-    __tablename__ = "ranks"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(50), unique=True, nullable=False)
-    description = Column(Text, nullable=True)
-    sort_order = Column(Integer, default=0, nullable=False, index=True)
-    is_default = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime, server_default=func.now(), nullable=False)
-    
-    # Relationships
-    characters = relationship("Character", back_populates="rank")
-    discord_mappings = relationship("DiscordRoleMapping", back_populates="rank")
-    
-    # Table constraints
-    __table_args__ = (
-        CheckConstraint("LENGTH(name) >= 2", name="ranks_name_length"),
-        Index('idx_ranks_sort_order', 'sort_order'),
-        # Partial unique index for is_default=True (PostgreSQL syntax)
-        Index('idx_ranks_default', 'is_default', postgresql_where=(is_default == True)),
-    )
-
-    def __repr__(self):
-        return f"<Rank(id={self.id}, name='{self.name}', sort_order={self.sort_order})>"
-```
-
-### 5. Additional Models
+### 4. Additional Models
 **Note**: The remaining models (DKP Pools, Events, Raids, Items, etc.) follow the same SQLAlchemy pattern with proper relationships, constraints, and indexes. For brevity, they are not all shown here, but would include:
 
 - DKPPool, Event, Raid, RaidAttendance
 - Item, ItemBid, BidHistory, LootDistribution  
 - PointAdjustment, UserPointsSummary
-- CharacterOwnershipHistory, DiscordRoleMapping, DiscordSyncLog
+- CharacterOwnershipHistory, DiscordSyncLog
 - GuildApplication, ApplicationVote, ApplicationComment, MemberAttendanceSummary
 
 ### 5. DKP Pools Table
@@ -575,28 +542,6 @@ CREATE INDEX idx_ownership_date ON character_ownership_history(transfer_date);
 CREATE INDEX idx_ownership_transferred_by ON character_ownership_history(transferred_by);
 ```
 
-### 16. Discord Role Mappings Table
-**Purpose**: Map guild ranks to Discord roles for automated synchronization
-
-```sql
-CREATE TABLE discord_role_mappings (
-    id SERIAL PRIMARY KEY,
-    rank_id INTEGER NOT NULL REFERENCES ranks(id) ON DELETE CASCADE,
-    discord_role_id VARCHAR(50) NOT NULL,
-    discord_role_name VARCHAR(100) NOT NULL,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
-    -- Constraints
-    CONSTRAINT discord_role_mappings_unique UNIQUE (rank_id, discord_role_id)
-);
-
--- Indexes
-CREATE INDEX idx_discord_mappings_rank ON discord_role_mappings(rank_id);
-CREATE INDEX idx_discord_mappings_role ON discord_role_mappings(discord_role_id);
-CREATE INDEX idx_discord_mappings_active ON discord_role_mappings(is_active);
-```
 
 ### 17. Discord Sync Log Table
 **Purpose**: Track Discord role synchronization attempts and results
@@ -819,36 +764,33 @@ CREATE INDEX idx_attendance_summary_updated ON member_attendance_summary(last_up
 1. **Users → Characters**: One user can have multiple characters
 2. **Users → API Keys**: One user can have multiple personal API keys (for bot keys, via created_by)
 3. **Characters → Characters**: One main character can have multiple alts
-4. **Ranks → Characters**: One rank can be assigned to multiple characters
-5. **Ranks → Discord Role Mappings**: One rank can map to multiple Discord roles
-6. **Events → Raids**: One event type can have multiple raid instances
-7. **Raids → Raid Attendance**: One raid can have multiple attendees
-8. **Raids → Loot Distribution**: One raid can have multiple loot distributions
-9. **Users → Raid Attendance**: One user can attend multiple raids (points awarded to user)
-10. **Users → Loot Distribution**: One user can receive multiple items (points deducted from user)
-11. **Users → Point Adjustments**: One user can have multiple adjustments
-12. **Characters → Raid Attendance**: One character can attend multiple raids (for historical reference)
-13. **Characters → Loot Distribution**: One character can receive multiple items (for historical reference)
-14. **Characters → Character Ownership History**: One character can have multiple ownership transfers
-15. **DKP Pools → Multiple Tables**: One pool can be referenced by attendance, loot, adjustments
-16. **Users → Discord Sync Log**: One user can have multiple sync log entries
-17. **Users → Guild Applications**: One recruiter can review multiple applications
-18. **Guild Applications → Application Votes**: One application can have multiple votes
-19. **Guild Applications → Application Comments**: One application can have multiple comments
-20. **Users → Application Votes**: One member can vote on multiple applications
-21. **Users → Application Comments**: One user can comment on multiple applications
-22. **Users → Member Attendance Summary**: One user can have multiple attendance records
-23. **Raids → Item Bids**: One raid can have multiple bidding sessions
-24. **Item Bids → Bid History**: One bidding session can have multiple individual bids
-25. **Users → Bid History**: One user can place bids in multiple sessions
-26. **Users → Item Bids**: One user can win multiple bidding sessions
+4. **Events → Raids**: One event type can have multiple raid instances
+5. **Raids → Raid Attendance**: One raid can have multiple attendees
+6. **Raids → Loot Distribution**: One raid can have multiple loot distributions
+7. **Users → Raid Attendance**: One user can attend multiple raids (points awarded to user)
+8. **Users → Loot Distribution**: One user can receive multiple items (points deducted from user)
+9. **Users → Point Adjustments**: One user can have multiple adjustments
+10. **Characters → Raid Attendance**: One character can attend multiple raids (for historical reference)
+11. **Characters → Loot Distribution**: One character can receive multiple items (for historical reference)
+12. **Characters → Character Ownership History**: One character can have multiple ownership transfers
+13. **DKP Pools → Multiple Tables**: One pool can be referenced by attendance, loot, adjustments
+14. **Users → Discord Sync Log**: One user can have multiple sync log entries
+15. **Users → Guild Applications**: One recruiter can review multiple applications
+16. **Guild Applications → Application Votes**: One application can have multiple votes
+17. **Guild Applications → Application Comments**: One application can have multiple comments
+18. **Users → Application Votes**: One member can vote on multiple applications
+19. **Users → Application Comments**: One user can comment on multiple applications
+20. **Users → Member Attendance Summary**: One user can have multiple attendance records
+21. **Raids → Item Bids**: One raid can have multiple bidding sessions
+22. **Item Bids → Bid History**: One bidding session can have multiple individual bids
+23. **Users → Bid History**: One user can place bids in multiple sessions
+24. **Users → Item Bids**: One user can win multiple bidding sessions
 
 ### Many-to-Many Relationships:
 1. **Users ↔ Raids** (via Raid Attendance): Users can attend multiple raids via different characters, raids can have multiple users
 2. **Users ↔ Items** (via Loot Distribution): Users can receive multiple items via different characters, items can go to multiple users
 3. **Users ↔ Item Bids** (via Bid History): Users can bid on multiple items, items can receive bids from multiple users
 4. **Members ↔ Applications** (via Application Votes): Eligible members can vote on multiple applications, applications can receive votes from multiple members
-5. **Ranks ↔ Discord Roles** (via Discord Role Mappings): Ranks can map to multiple Discord roles, Discord roles can correspond to multiple ranks
 
 **Note**: While character names are referenced in attendance and loot tables, all relationships are fundamentally user-centric to support character transfers.
 
@@ -880,7 +822,7 @@ CREATE INDEX idx_attendance_summary_updated ON member_attendance_summary(last_up
 23. Only members with ≥15% 30-day attendance can vote on applications
 24. Applications must have character name and class specified
 25. Trial members have time-limited membership status
-26. Discord role mappings must reference valid ranks and roles
+26. **Characters do not have ranks, groups, or roles - only Discord users have role assignments**
 27. Only recruiters can accept applicants into trial status
 28. Voting periods are exactly 48 hours long
 29. Members can change their vote during the voting period
@@ -928,7 +870,7 @@ CREATE INDEX idx_attendance_summary_updated ON member_attendance_summary(last_up
 2. Role changes trigger automatic Discord synchronization
 3. Discord sync failures are logged and retried
 4. Manual sync override available for administrators
-5. Discord role mappings can be many-to-many (rank to roles)
+5. **Discord roles are managed directly through User.role_group field, no character-level ranks**
 
 ### Recruitment Voting Rules:
 1. **Voting options**: pass, fail, recycle (three options available)
@@ -1215,20 +1157,20 @@ def get_db():
 # models/__init__.py
 from .base import Base
 from .user import User, APIKey
-from .character import Character, Rank, CharacterOwnershipHistory
+from .character import Character, CharacterOwnershipHistory
 from .dkp import DKPPool, UserPointsSummary, PointAdjustment
 from .event import Event, Raid, RaidAttendance
 from .item import Item, ItemBid, BidHistory, LootDistribution
 from .application import GuildApplication, ApplicationVote, ApplicationComment
-from .discord import DiscordRoleMapping, DiscordSyncLog
+from .discord import DiscordSyncLog
 from .analytics import MemberAttendanceSummary
 
 __all__ = [
-    "Base", "User", "APIKey", "Character", "Rank", "CharacterOwnershipHistory",
+    "Base", "User", "APIKey", "Character", "CharacterOwnershipHistory",
     "DKPPool", "UserPointsSummary", "PointAdjustment", "Event", "Raid", 
     "RaidAttendance", "Item", "ItemBid", "BidHistory", "LootDistribution",
     "GuildApplication", "ApplicationVote", "ApplicationComment",
-    "DiscordRoleMapping", "DiscordSyncLog", "MemberAttendanceSummary"
+    "DiscordSyncLog", "MemberAttendanceSummary"
 ]
 ```
 

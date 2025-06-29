@@ -244,42 +244,8 @@ class APIKey(models.Model):
         return self.token.key if self.token else None
 ```
 
-### 3. Ranks Model
-**Purpose**: Define character ranks within the guild
 
-```python
-class Rank(models.Model):
-    """Guild character ranks"""
-    
-    name = models.CharField(
-        max_length=50, 
-        unique=True,
-        validators=[MinLengthValidator(2)]
-    )
-    description = models.TextField(blank=True)
-    sort_order = models.IntegerField(default=0)
-    is_default = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
-    
-    class Meta:
-        db_table = 'ranks'
-        ordering = ['sort_order', 'name']
-        indexes = [
-            models.Index(fields=['sort_order']),
-        ]
-        constraints = [
-            models.UniqueConstraint(
-                fields=['is_default'],
-                condition=models.Q(is_default=True),
-                name='unique_default_rank'
-            ),
-        ]
-
-    def __str__(self):
-        return self.name
-```
-
-### 4. Characters Model  
+### 3. Characters Model  
 **Purpose**: Store character information and link to users
 
 ```python
@@ -306,13 +272,6 @@ class Character(models.Model):
             models.MinValueValidator(1)
         ]
     )
-    rank = models.ForeignKey(
-        Rank, 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        blank=True,
-        related_name='characters'
-    )
     is_main = models.BooleanField(default=False)
     main_character = models.ForeignKey(
         'self', 
@@ -333,7 +292,6 @@ class Character(models.Model):
             models.Index(fields=['user']),
             models.Index(fields=['main_character']),
             models.Index(fields=['is_active']),
-            models.Index(fields=['rank']),
         ]
         constraints = [
             models.CheckConstraint(
@@ -351,7 +309,7 @@ class Character(models.Model):
             raise ValidationError('Character cannot be its own main character')
 ```
 
-### 5. DKP Pools Model
+### 4. DKP Pools Model
 **Purpose**: Define different DKP pools (e.g., Main Raid, Alt Raid, etc.)
 
 ```python
@@ -377,7 +335,7 @@ class DKPPool(models.Model):
         return self.name
 ```
 
-### 6. Events Model
+### 5. Events Model
 **Purpose**: Define types of raids/events that award points
 
 ```python
@@ -411,7 +369,7 @@ class Event(models.Model):
         return self.name
 ```
 
-### 7. Raids Model
+### 6. Raids Model
 **Purpose**: Store specific instances of events where points are awarded
 
 ```python
@@ -458,7 +416,7 @@ class Raid(models.Model):
         return f"{self.name} ({self.raid_date.date()})"
 ```
 
-### 8. Raid Attendance Model
+### 7. Raid Attendance Model
 **Purpose**: Award points to Discord users based on character attendance (no hard character links)
 
 ```python
@@ -540,7 +498,7 @@ class RaidAttendance(models.Model):
         return f"{self.character_name} - {self.raid.name}"
 ```
 
-### 9. Items Model
+### 8. Items Model
 **Purpose**: Store information about items (no fixed costs - all awarded via bidding)
 
 ```python
@@ -565,7 +523,7 @@ class Item(models.Model):
         return self.name
 ```
 
-### 10. Item Bids Model
+### 9. Item Bids Model
 **Purpose**: Track bidding sessions and bid history for items
 
 ```python
@@ -659,7 +617,7 @@ class ItemBid(models.Model):
         return f"{self.item_name} - {self.bid_session_id}"
 ```
 
-### 11. Bid History Model
+### 10. Bid History Model
 **Purpose**: Track individual bids placed by Discord users (no hard character links)
 
 ```python
@@ -735,7 +693,7 @@ class BidHistory(models.Model):
         return f"{self.user.discord_username} - {self.bid_amount}"
 ```
 
-### 12. Loot Distribution Model
+### 11. Loot Distribution Model
 **Purpose**: Track final item awards from bidding results (Discord user focused, no hard character links)
 
 ```python
@@ -830,7 +788,7 @@ class LootDistribution(models.Model):
         return f"{self.item_name} -> {self.character_name}"
 ```
 
-### 13. Point Adjustments Model
+### 12. Point Adjustments Model
 **Purpose**: Track manual point adjustments to Discord user accounts (no hard character links)
 
 ```python
@@ -908,7 +866,7 @@ class PointAdjustment(models.Model):
         return f"{self.user.discord_username}: {self.points_change} ({self.reason})"
 ```
 
-### 14. User Points Summary Model
+### 13. User Points Summary Model
 **Purpose**: Materialized view/table for efficient user point balance queries
 
 ```python
@@ -995,7 +953,7 @@ class UserPointsSummary(models.Model):
         self.save()
 ```
 
-### 15. Character Ownership History Model
+### 14. Character Ownership History Model
 **Purpose**: Track character reassignments between Discord users
 
 ```python
@@ -1051,38 +1009,8 @@ class CharacterOwnershipHistory(models.Model):
         return f"{self.character.name}: {prev} -> {self.new_user.discord_username}"
 ```
 
-### 16. Discord Role Mappings Model
-**Purpose**: Map guild ranks to Discord roles for automated synchronization
 
-```python
-class DiscordRoleMapping(models.Model):
-    """Map guild ranks to Discord roles"""
-    
-    rank = models.ForeignKey(
-        Rank, 
-        on_delete=models.CASCADE,
-        related_name='discord_mappings'
-    )
-    discord_role_id = models.CharField(max_length=50)
-    discord_role_name = models.CharField(max_length=100)
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        db_table = 'discord_role_mappings'
-        unique_together = ['rank', 'discord_role_id']
-        indexes = [
-            models.Index(fields=['rank']),
-            models.Index(fields=['discord_role_id']),
-            models.Index(fields=['is_active']),
-        ]
-
-    def __str__(self):
-        return f"{self.rank.name} -> {self.discord_role_name}"
-```
-
-### 17. Discord Sync Log Model
+### 15. Discord Sync Log Model
 **Purpose**: Track Discord role synchronization attempts and results
 
 ```python
@@ -1128,7 +1056,7 @@ class DiscordSyncLog(models.Model):
         return f"{self.action} - {self.status} ({self.created_at})"
 ```
 
-### 18. Guild Applications Model
+### 16. Guild Applications Model
 **Purpose**: Store recruitment applications from prospective members
 
 ```python
@@ -1208,7 +1136,7 @@ class GuildApplication(models.Model):
         return f"{self.character_name} ({self.status})"
 ```
 
-### 19. Application Votes Model
+### 17. Application Votes Model
 **Purpose**: Track all member votes on guild applications (accept all, count only ≥15% attendance)
 
 ```python
@@ -1266,7 +1194,7 @@ class ApplicationVote(models.Model):
         return f"{self.user.discord_username} - {self.vote} ({self.attendance_percentage}%)"
 ```
 
-### 20. Application Comments Model
+### 18. Application Comments Model
 **Purpose**: Store review comments and feedback on applications
 
 ```python
@@ -1307,7 +1235,7 @@ class ApplicationComment(models.Model):
         return f"Comment on {self.application.character_name} by {self.user.discord_username if self.user else 'Anonymous'}"
 ```
 
-### 21. Member Attendance Summary Model
+### 19. Member Attendance Summary Model
 **Purpose**: Track 30/60/90 day and lifetime rolling attendance percentages for voting eligibility and member performance
 
 ```python
@@ -1484,9 +1412,6 @@ class CharacterQuerySet(models.QuerySet):
     
     def by_class(self, character_class):
         return self.filter(character_class=character_class)
-    
-    def by_rank(self, rank):
-        return self.filter(rank=rank)
 
 class CharacterManager(models.Manager):
     def get_queryset(self):
@@ -1756,6 +1681,7 @@ class CharacterViewSet(viewsets.ModelViewSet):
 12. **Only one active bid session per item per raid** (business logic)
 13. **Bid amounts must be positive (greater than 0)** (validators)
 14. **Loot distribution requires completed bidding session**
+15. **Characters do not have ranks, groups, or roles - only Discord users have role assignments**
 
 ### Authentication Rules:
 1. **Django social auth for Discord OAuth** - primary authentication method
@@ -1778,6 +1704,8 @@ class CharacterViewSet(viewsets.ModelViewSet):
 8. Use Django's admin interface for administrative tasks
 9. Leverage Django's ORM for complex queries and relationships
 10. Custom allauth adapter to populate User model from Discord OAuth data
+11. **Discord role management handled directly through User model role_group field**
+12. **No character-level rank assignments - simplified to user-level roles only**
 
 ### Django-Allauth Benefits:
 - Automatic OAuth token refresh and management
