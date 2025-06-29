@@ -174,33 +174,29 @@ This system will serve as the **single source of truth** for:
 - **Performance monitoring**: Display member consistency and participation trends across different time periods
 - **Automated attendance calculations**: Daily background tasks to update rolling averages for all active members
 
-### 3.7 Item and Bidding Management
+### 3.7 Item and Loot Management
 **Priority: High**
 
 #### 3.7.1 Item Database
 - Django Model with standard fields
 - Item name only (CharField)
 - Simplified item tracking without categories or metadata
-- Item names for bidding (simplified model)
-- **No fixed point costs** - all items awarded via bidding (no price field)
-- Historical bidding data for reference pricing (BidHistory model)
+- Item names for loot distribution tracking (simplified model)
 
-#### 3.7.2 In-Game Bidding System
-- **All bidding occurs in-game only** (no web-based bidding interface)
-- **Discord bot monitors game chat** for bid commands and manages auctions
-- **Discord bot determines winner and final bid amount in-game**
-- **Discord bot submits final bidding results** via DRF API endpoints:
+#### 3.7.2 Loot Distribution System
+- **Loot distribution decisions made in-game by guild leadership**
+- **Discord bot submits final loot awards** via DRF API endpoints:
   - Django User lookup by Discord ID
   - Item name (CharField)
-  - Winning bid amount (DecimalField)
+  - Points spent for item (DecimalField)
   - Character name context (CharField snapshot)
   - Raid context (ForeignKey to Raid)
 
 #### 3.7.3 Loot Distribution Processing
-- **DRF API receives bid results from Discord bot**
-- **Deduct winning bid amount from Django User balance** (UserPointsSummary updates)
-- Record complete bidding history and final winner (BidHistory and LootDistribution models)
-- Loot audit trail with bid progression (Django model relationships)
+- **DRF API receives loot awards from Discord bot**
+- **Deduct point cost from Django User balance** (UserPointsSummary updates)
+- Record loot awards and final recipient (LootDistribution model)
+- Loot audit trail with award history (Django model relationships)
 - Point expenditure validation against user balance (DRF serializer validation)
 
 ### 3.8 Point Adjustments
@@ -236,13 +232,12 @@ This system will serve as the **single source of truth** for:
 - Member linking and unlinking (Django User to Discord ID association)
 - Bulk member status updates (Django admin actions)
 
-#### 3.9.2 Discord Bot Bidding Integration
-- **Real-time DKP balance queries** for bid validation (DRF API endpoints)
-- **Bid submission API** for Discord bot to submit results (DRF ViewSets)
-- **Active bidding session tracking** for ongoing auctions (ItemBid model)
-- **Bid validation endpoints** to prevent overbidding (DRF serializer validation)
+#### 3.9.2 Discord Bot Loot Integration
+- **Real-time DKP balance queries** for loot award validation (DRF API endpoints)
+- **Loot award API** for Discord bot to submit results (DRF ViewSets)
+- **Point validation endpoints** to prevent overspending (DRF serializer validation)
 - **Item award processing** with automatic point deduction (Django signals)
-- **Bidding history tracking** for audit and analytics (BidHistory model)
+- **Loot distribution tracking** for audit and analytics (LootDistribution model)
 
 #### 3.9.3 Discord Bot API Endpoints
 - DRF API endpoints for current roster and member status
@@ -250,7 +245,7 @@ This system will serve as the **single source of truth** for:
 - Authentication for Discord bot access via DRF Token Authentication
 - Member status change audit logging (custom logging model)
 - Error handling and retry mechanisms (Django-RQ or Celery)
-- **Bidding system API access** with extended permissions (custom DRF permissions)
+- **Loot distribution API access** with extended permissions (custom DRF permissions)
 
 #### 3.9.4 Member Linking
 - Discord ID association with Django User accounts (required field)
@@ -451,22 +446,18 @@ path('api/attendance/leaderboard/90-day/', 'AttendanceLeaderboard90DayView.as_vi
 path('api/attendance/leaderboard/lifetime/', 'AttendanceLeaderboardLifetimeView.as_view()')  # GET
 ```
 
-#### 5.2.7 Items and Bidding (Django Models + DRF ViewSets)
+#### 5.2.7 Items and Loot Distribution (Django Models + DRF ViewSets)
 ```python
 # Item Management (Standard DRF ModelViewSet)
 path('api/items/', include(router.urls))
 # GET|POST /api/items/
 # GET|PUT|DELETE /api/items/{id}/
-# GET /api/items/{id}/bid-history/
+# GET /api/items/{id}/distribution-history/
 
-# Bidding System (Custom DRF Views for Discord Bot API)
-path('api/bidding/start-bid/', 'StartBidView.as_view()')  # POST
-path('api/bidding/active/', 'ActiveBidsView.as_view()')  # GET
-path('api/bidding/place-bid/', 'PlaceBidView.as_view()')  # POST
-path('api/bidding/close-bid/', 'CloseBidView.as_view()')  # POST
-path('api/bidding/award-item/', 'AwardItemView.as_view()')  # POST
-path('api/bidding/<str:bid_session_id>/', 'BidSessionDetailView.as_view()')  # GET
-path('api/bidding/user/<str:discord_id>/max-bid/', 'UserMaxBidView.as_view()')  # GET
+# Loot Distribution System (Custom DRF Views for Discord Bot API)
+path('api/loot/award-item/', 'AwardItemView.as_view()')  # POST
+path('api/loot/user/<str:discord_id>/balance/', 'UserBalanceView.as_view()')  # GET
+path('api/loot/distribution-history/', 'LootDistributionHistoryView.as_view()')  # GET
 ```
 
 #### 5.2.8 Discord Integration (Custom DRF Views)
@@ -479,11 +470,10 @@ path('api/discord/unlink-member/<int:user_id>/', 'UnlinkMemberView.as_view()')  
 path('api/discord/audit-log/', 'DiscordAuditLogView.as_view()')  # GET
 path('api/discord/webhooks/member-update/', 'MemberUpdateWebhookView.as_view()')  # POST
 
-# Discord Bot Bidding Integration (Custom DRF APIViews)
-path('api/discord/bid-results/', 'BidResultsView.as_view()')  # POST
+# Discord Bot Loot Integration (Custom DRF APIViews)
+path('api/discord/loot-award/', 'LootAwardView.as_view()')  # POST
 path('api/discord/user/<str:discord_id>/balance/', 'UserBalanceView.as_view()')  # GET
-path('api/discord/validate-bid/', 'ValidateBidView.as_view()')  # POST
-path('api/discord/active-bids/', 'ActiveBidsView.as_view()')  # GET
+path('api/discord/validate-points/', 'ValidatePointsView.as_view()')  # POST
 ```
 
 #### 5.2.9 Recruitment Applications (Django Models + DRF ViewSets)
