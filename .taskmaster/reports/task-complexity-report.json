@@ -1,0 +1,93 @@
+{
+	"meta": {
+		"generatedAt": "2025-06-29T20:05:33.906Z",
+		"tasksAnalyzed": 10,
+		"totalTasks": 10,
+		"analysisCount": 10,
+		"thresholdScore": 5,
+		"projectName": "Taskmaster",
+		"usedResearch": false
+	},
+	"complexityAnalysis": [
+		{
+			"taskId": 1,
+			"taskTitle": "Django Project Setup and Configuration",
+			"complexityScore": 6,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Break down Django project initialization into: 1) cookiecutter-django setup with template selection, 2) database configuration (PostgreSQL/MySQL) with connection testing, 3) Redis cache and CORS configuration, 4) requirements.txt setup and environment separation for dev/prod settings",
+			"reasoning": "Moderate complexity due to multiple configuration steps and dependency management, but well-documented Django practices"
+		},
+		{
+			"taskId": 2,
+			"taskTitle": "Django-Allauth Discord OAuth Integration",
+			"complexityScore": 8,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Divide OAuth integration into: 1) django-allauth installation and basic configuration, 2) Discord OAuth provider setup with app credentials, 3) OAuth flow implementation with proper scopes, 4) custom allauth adapter creation for Discord data mapping, 5) authentication URLs, templates, and session management setup",
+			"reasoning": "High complexity due to OAuth flow intricacies, third-party service integration, and custom adapter development"
+		},
+		{
+			"taskId": 3,
+			"taskTitle": "Extended User Model and Role System",
+			"complexityScore": 7,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Structure user model extension into: 1) User model extension with Discord fields and custom manager, 2) role_group field implementation with choices and Django Groups, 3) admin interface customization, 4) allauth signals setup for automatic Discord data synchronization",
+			"reasoning": "Moderately high complexity involving Django model extension, permissions system, and signal handling"
+		},
+		{
+			"taskId": 4,
+			"taskTitle": "Character Management System",
+			"complexityScore": 7,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Break character system into: 1) Character model creation with basic fields and user relationships, 2) Rank model and hierarchy implementation, 3) main/alt character relationships via self-referencing ForeignKey, 4) ownership history tracking model, 5) Django admin interface and DRF ViewSets with serializers",
+			"reasoning": "Moderately high complexity due to complex relationships, ownership tracking, and comprehensive CRUD operations"
+		},
+		{
+			"taskId": 5,
+			"taskTitle": "DKP Point System with User-Based Tracking",
+			"complexityScore": 8,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Structure DKP system into: 1) UserPointsSummary model for current balances, 2) PointAdjustment model for all point changes, 3) Django signals for automatic summary updates, 4) point calculation methods using Django aggregation, 5) validation and negative balance prevention",
+			"reasoning": "High complexity due to financial-like calculations, data integrity requirements, and automatic update mechanisms"
+		},
+		{
+			"taskId": 6,
+			"taskTitle": "Event and Raid Management",
+			"complexityScore": 6,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Divide event management into: 1) Event model creation with point values and descriptions, 2) Raid model with event relationships and metadata, 3) RaidAttendance model with user-character linking, 4) DRF ViewSets and nested attendance endpoints",
+			"reasoning": "Moderate complexity with straightforward model relationships and standard CRUD operations"
+		},
+		{
+			"taskId": 7,
+			"taskTitle": "Multi-Period Attendance Tracking System",
+			"complexityScore": 9,
+			"recommendedSubtasks": 6,
+			"expansionPrompt": "Structure attendance tracking into: 1) MemberAttendanceSummary model design, 2) rolling average calculation algorithms, 3) Django management command for daily calculations, 4) database optimization and indexing, 5) DRF API endpoints for queries and leaderboards, 6) voting eligibility logic implementation",
+			"reasoning": "Very high complexity due to time-series calculations, performance optimization needs, and complex business logic"
+		},
+		{
+			"taskId": 8,
+			"taskTitle": "Item and Loot Distribution API",
+			"complexityScore": 7,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Break loot system into: 1) Item model and LootDistribution model creation, 2) DRF API endpoints for Discord bot integration, 3) automatic point deduction via Django signals, 4) loot audit trail and distribution history tracking",
+			"reasoning": "Moderately high complexity due to external API integration, transaction integrity, and audit requirements"
+		},
+		{
+			"taskId": 9,
+			"taskTitle": "Discord Integration and Member Management",
+			"complexityScore": 8,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Structure Discord integration into: 1) DRF API endpoints for roster and member management, 2) member linking/unlinking functionality, 3) Django signals for webhook notifications, 4) custom DRF permissions for bot access, 5) error handling and retry mechanisms",
+			"reasoning": "High complexity due to external service integration, webhook management, and robust error handling requirements"
+		},
+		{
+			"taskId": 10,
+			"taskTitle": "Recruitment Application and Voting System",
+			"complexityScore": 9,
+			"recommendedSubtasks": 6,
+			"expansionPrompt": "Structure recruitment system into: 1) Application model with comprehensive fields and status tracking, 2) ApplicationVote model with attendance-based logic, 3) role-based access control implementation, 4) voting period management with time windows, 5) automatic workflows for character creation and promotion, 6) Discord webhook integration for notifications",
+			"reasoning": "Very high complexity due to multi-stage workflow, complex business rules, role-based access control, and integration requirements"
+		}
+	]
+}
