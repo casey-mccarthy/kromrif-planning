@@ -1,12 +1,26 @@
-# Django Configuration
+# Copy this file to .envs/.local/.django for Docker development
+
+# General
+# ------------------------------------------------------------------------------
+USE_DOCKER=yes
+IPYTHONDIR=/app/.ipython
+
+# Django
 # ------------------------------------------------------------------------------
 DJANGO_DEBUG=True
 DJANGO_SECRET_KEY=change-this-to-a-secure-secret-key-in-production
-DJANGO_READ_DOT_ENV_FILE=True
 
-# Database Configuration  
+# Database
 # ------------------------------------------------------------------------------
-DATABASE_URL=sqlite:///db.sqlite3
+DATABASE_URL=postgres://debug:debug@postgres:5432/kromrif_planning
+
+# Redis
+# ------------------------------------------------------------------------------
+REDIS_URL=redis://redis:6379/0
+
+# Email
+# ------------------------------------------------------------------------------
+DJANGO_EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
 
 # Account Registration
 # ------------------------------------------------------------------------------
@@ -18,15 +32,3 @@ DJANGO_ACCOUNT_ALLOW_REGISTRATION=False
 # and replace these with your actual client ID and secret
 DISCORD_CLIENT_ID=your_discord_client_id_here
 DISCORD_CLIENT_SECRET=your_discord_client_secret_here
-
-# Redis Configuration (for production/cache)
-# ------------------------------------------------------------------------------
-REDIS_URL=redis://127.0.0.1:6379/0
-
-# Email Configuration
-# ------------------------------------------------------------------------------
-DJANGO_EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
-
-# Docker Configuration
-# ------------------------------------------------------------------------------
-USE_DOCKER=no
