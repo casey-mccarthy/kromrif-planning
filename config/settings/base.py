@@ -76,8 +76,8 @@ THIRD_PARTY_APPS = [
     "crispy_bootstrap5",
     "allauth",
     "allauth.account",
-    "allauth.mfa",
     "allauth.socialaccount",
+    "allauth.socialaccount.providers.discord",
     "rest_framework",
     "rest_framework.authtoken",
     "corsheaders",
@@ -260,6 +260,18 @@ LOGGING = {
         },
     },
     "root": {"level": "INFO", "handlers": ["console"]},
+    "loggers": {
+        "allauth": {
+            "level": "DEBUG",
+            "handlers": ["console"],
+            "propagate": False,
+        },
+        "kromrif_planning.users": {
+            "level": "DEBUG", 
+            "handlers": ["console"],
+            "propagate": False,
+        },
+    },
 }
 
 REDIS_URL = env("REDIS_URL", default="redis://redis:6379/0")
@@ -268,13 +280,15 @@ REDIS_SSL = REDIS_URL.startswith("rediss://")
 
 # django-allauth
 # ------------------------------------------------------------------------------
-ACCOUNT_ALLOW_REGISTRATION = env.bool("DJANGO_ACCOUNT_ALLOW_REGISTRATION", True)
+# Disable regular account registration - only Discord OAuth allowed
+ACCOUNT_ALLOW_REGISTRATION = False
 # https://docs.allauth.org/en/latest/account/configuration.html
-ACCOUNT_LOGIN_METHODS = {"username"}
-# https://docs.allauth.org/en/latest/account/configuration.html
-ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
-# https://docs.allauth.org/en/latest/account/configuration.html
-ACCOUNT_EMAIL_VERIFICATION = "mandatory"
+ACCOUNT_EMAIL_VERIFICATION = "none"  # Not needed for Discord-only auth
+ACCOUNT_EMAIL_REQUIRED = False  # Don't require email for account creation
+SOCIALACCOUNT_EMAIL_REQUIRED = False  # Don't require email from social providers
+SOCIALACCOUNT_EMAIL_VERIFICATION = "none"  # No email verification for social accounts
+# Only allow social account registration (Discord)
+SOCIALACCOUNT_ONLY = True
 # https://docs.allauth.org/en/latest/account/configuration.html
 ACCOUNT_ADAPTER = "kromrif_planning.users.adapters.AccountAdapter"
 # https://docs.allauth.org/en/latest/account/forms.html
@@ -283,6 +297,11 @@ ACCOUNT_FORMS = {"signup": "kromrif_planning.users.forms.UserSignupForm"}
 SOCIALACCOUNT_ADAPTER = "kromrif_planning.users.adapters.SocialAccountAdapter"
 # https://docs.allauth.org/en/latest/socialaccount/configuration.html
 SOCIALACCOUNT_FORMS = {"signup": "kromrif_planning.users.forms.UserSocialSignupForm"}
+
+# Discord OAuth Configuration
+# ------------------------------------------------------------------------------
+# Discord OAuth is configured via Django admin (SocialApp model)
+# rather than in settings to avoid conflicts
 
 # django-rest-framework
 # -------------------------------------------------------------------------------

@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Home - EQ DKP System{% endblock title %}
+
+{% block content %}
+<div class="container">
+  <div class="row">
+    <div class="col-lg-12">
+      <div class="jumbotron bg-primary text-white p-5 rounded">
+        <h1 class="display-4">Welcome to Kromrif Planning</h1>
+        <p class="lead">EverQuest DKP (Dragon Kill Points) tracking system for the Kromrif guild.</p>
+        
+        {% if user.is_authenticated %}
+          <hr class="my-4">
+          <p>Welcome back, {{ user.name|default:user.username }}!</p>
+          <a class="btn btn-light btn-lg" href="{% url 'users:detail' user.pk %}" role="button">
+            <i class="fas fa-user"></i> View Profile
+          </a>
+        {% else %}
+          <hr class="my-4">
+          <p>Sign in with your Discord account to get started.</p>
+          <a class="btn btn-light btn-lg" href="{% url 'account_login' %}" role="button">
+            <i class="fab fa-discord"></i> Sign In with Discord
+          </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  
+  {% if user.is_authenticated %}
+  <div class="row mt-4">
+    <div class="col-md-4">
+      <div class="card">
+        <div class="card-header">
+          <h5><i class="fas fa-coins"></i> DKP Overview</h5>
+        </div>
+        <div class="card-body">
+          <p class="card-text">View your current DKP balance and recent transactions.</p>
+          <a href="#" class="btn btn-primary">View DKP</a>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-md-4">
+      <div class="card">
+        <div class="card-header">
+          <h5><i class="fas fa-calendar"></i> Raids</h5>
+        </div>
+        <div class="card-body">
+          <p class="card-text">Check upcoming raids and attendance tracking.</p>
+          <a href="#" class="btn btn-primary">View Raids</a>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-md-4">
+      <div class="card">
+        <div class="card-header">
+          <h5><i class="fas fa-trophy"></i> Loot</h5>
+        </div>
+        <div class="card-body">
+          <p class="card-text">Browse loot history and wishlist items.</p>
+          <a href="#" class="btn btn-primary">View Loot</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock content %}
