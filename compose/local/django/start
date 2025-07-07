@@ -4,6 +4,11 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
-
+echo "🔄 Running migrations..."
 python manage.py migrate
+
+echo "👤 Creating default admin user..."
+python manage.py create_default_admin
+
+echo "🚀 Starting Django development server..."
 exec python manage.py runserver_plus 0.0.0.0:8000
