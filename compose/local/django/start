@@ -7,8 +7,15 @@ set -o nounset
 echo "🔄 Running migrations..."
 python manage.py migrate
 
-echo "👤 Creating default admin user..."
-python manage.py create_default_admin
+echo "👤 Checking admin user configuration..."
+# Only create admin user if environment variables are set
+if [[ -n "${DJANGO_ADMIN_USERNAME:-}" && -n "${DJANGO_ADMIN_PASSWORD:-}" && -n "${DJANGO_ADMIN_EMAIL:-}" ]]; then
+    echo "📝 Creating/updating admin user from environment variables..."
+    python manage.py create_default_admin
+else
+    echo "⚠️  Skipping admin user creation - environment variables not set"
+    echo "   Set DJANGO_ADMIN_USERNAME, DJANGO_ADMIN_PASSWORD, and DJANGO_ADMIN_EMAIL to enable"
+fi
 
 echo "🚀 Starting Django development server..."
 exec python manage.py runserver_plus 0.0.0.0:8000

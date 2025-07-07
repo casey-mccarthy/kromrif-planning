@@ -1,34 +1,60 @@
-# Copy this file to .envs/.local/.django for Docker development
+# ==============================================================================
+# DJANGO ENVIRONMENT VARIABLES - LOCAL DEVELOPMENT
+# ==============================================================================
+# Copy this file to .envs/.local/.django and update with your actual values
 
 # General
 # ------------------------------------------------------------------------------
 USE_DOCKER=yes
 IPYTHONDIR=/app/.ipython
 
-# Django
+# Django Core Settings
 # ------------------------------------------------------------------------------
 DJANGO_DEBUG=True
-DJANGO_SECRET_KEY=change-this-to-a-secure-secret-key-in-production
+# Generate a secure secret key for development: python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'
+DJANGO_SECRET_KEY=change_me_to_a_secure_random_key_for_development
 
-# Database
+# Admin User Configuration (Development Only)
 # ------------------------------------------------------------------------------
-DATABASE_URL=postgres://debug:debug@postgres:5432/kromrif_planning
+# These variables enable automatic admin user creation during Docker startup
+# SECURITY: Only use in development! Never set these in production.
+DJANGO_ADMIN_USERNAME=admin
+DJANGO_ADMIN_PASSWORD=your_secure_admin_password_min_8_chars
+DJANGO_ADMIN_EMAIL=admin@yourdomain.local
 
-# Redis
+# Redis Configuration
 # ------------------------------------------------------------------------------
 REDIS_URL=redis://redis:6379/0
 
-# Email
+# Email Configuration
 # ------------------------------------------------------------------------------
 DJANGO_EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
 
-# Account Registration
+# User Registration
 # ------------------------------------------------------------------------------
 DJANGO_ACCOUNT_ALLOW_REGISTRATION=False
 
+# Database Configuration
+# ------------------------------------------------------------------------------
+DATABASE_URL=postgres://debug:debug@postgres:5432/kromrif_planning
+
 # Discord OAuth Configuration
 # ------------------------------------------------------------------------------
-# Create a Discord application at https://discord.com/developers/applications
-# and replace these with your actual client ID and secret
-DISCORD_CLIENT_ID=your_discord_client_id_here
-DISCORD_CLIENT_SECRET=your_discord_client_secret_here
+# To set up Discord OAuth:
+# 1. Go to https://discord.com/developers/applications
+# 2. Create a new application
+# 3. Go to OAuth2 section
+# 4. Add redirect URI: http://localhost:8000/accounts/discord/login/callback/
+# 5. Copy Client ID and Client Secret below
+DISCORD_CLIENT_ID=your_discord_application_client_id
+DISCORD_CLIENT_SECRET=your_discord_application_client_secret
+
+# ==============================================================================
+# PRODUCTION VARIABLES (for reference - DO NOT SET IN DEVELOPMENT)
+# ==============================================================================
+# These should ONLY be set in production environment:
+# DJANGO_ADMIN_URL=secure-admin-path-here  # Custom admin URL
+# DJANGO_ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com
+# DJANGO_SECURE_SSL_REDIRECT=True
+# MAILGUN_API_KEY=your_mailgun_api_key
+# MAILGUN_DOMAIN=your_mailgun_domain

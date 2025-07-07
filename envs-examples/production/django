@@ -1,0 +1,65 @@
+# ==============================================================================
+# DJANGO ENVIRONMENT VARIABLES - PRODUCTION
+# ==============================================================================
+# SECURITY WARNING: This file contains production configuration examples.
+# DO NOT commit actual production secrets to version control!
+
+# Django Core Settings
+# ------------------------------------------------------------------------------
+DJANGO_DEBUG=False
+# CRITICAL: Generate a unique, cryptographically secure secret key
+# Use: python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'
+DJANGO_SECRET_KEY=your_production_secret_key_50_chars_minimum
+
+# Domain Configuration
+# ------------------------------------------------------------------------------
+DJANGO_ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com
+DJANGO_ADMIN_URL=your-secure-admin-path-here-not-admin/
+
+# Database Configuration
+# ------------------------------------------------------------------------------
+# Use a robust production database with connection pooling
+DATABASE_URL=postgres://username:password@host:port/database_name
+CONN_MAX_AGE=60
+
+# Redis Configuration (Caching & Sessions)
+# ------------------------------------------------------------------------------
+REDIS_URL=redis://username:password@redis-host:port/0
+
+# Email Configuration (Mailgun example)
+# ------------------------------------------------------------------------------
+DJANGO_DEFAULT_FROM_EMAIL=noreply@yourdomain.com
+DJANGO_SERVER_EMAIL=server@yourdomain.com
+DJANGO_EMAIL_SUBJECT_PREFIX=[YourApp] 
+MAILGUN_API_KEY=your_mailgun_api_key
+MAILGUN_DOMAIN=your_mailgun_domain
+MAILGUN_API_URL=https://api.mailgun.net/v3
+
+# SSL/Security Configuration
+# ------------------------------------------------------------------------------
+DJANGO_SECURE_SSL_REDIRECT=True
+DJANGO_SECURE_HSTS_SECONDS=518400
+DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS=True
+DJANGO_SECURE_HSTS_PRELOAD=True
+DJANGO_SECURE_CONTENT_TYPE_NOSNIFF=True
+
+# Discord OAuth Configuration
+# ------------------------------------------------------------------------------
+# Use PRODUCTION Discord application credentials
+DISCORD_CLIENT_ID=your_production_discord_client_id
+DISCORD_CLIENT_SECRET=your_production_discord_client_secret
+
+# User Registration
+# ------------------------------------------------------------------------------
+DJANGO_ACCOUNT_ALLOW_REGISTRATION=False
+
+# SECURITY WARNING: NEVER SET THESE IN PRODUCTION!
+# ==============================================================================
+# DO NOT SET:
+# - DJANGO_ADMIN_USERNAME (Use proper admin user creation process)
+# - DJANGO_ADMIN_PASSWORD (Use proper admin user creation process)  
+# - DJANGO_ADMIN_EMAIL (Use proper admin user creation process)
+# 
+# For production admin users, manually run:
+# python manage.py createsuperuser
+# ============================================================================== 

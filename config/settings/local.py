@@ -8,12 +8,11 @@ from .base import env
 # https://docs.djangoproject.com/en/dev/ref/settings/#debug
 DEBUG = True
 # https://docs.djangoproject.com/en/dev/ref/settings/#secret-key
-SECRET_KEY = env(
-    "DJANGO_SECRET_KEY",
-    default="IBFcAB2Py9wPl9G6ZCQ5zjlDfTBJfaPrlmruXa4DyFptLfN26KzKpRX7fy51bftv",
-)
+# SECURITY: No hardcoded fallback for secret key
+SECRET_KEY = env("DJANGO_SECRET_KEY")
 # https://docs.djangoproject.com/en/dev/ref/settings/#allowed-hosts
-ALLOWED_HOSTS = ["localhost", "0.0.0.0", "127.0.0.1"]  # noqa: S104
+# SECURITY: Removed 0.0.0.0 to prevent host header injection
+ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 
 # CACHES
 # ------------------------------------------------------------------------------
