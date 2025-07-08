@@ -1,0 +1,37 @@
+# Task ID: 6
+# Title: Event and Raid Management
+# Status: pending
+# Dependencies: 5
+# Priority: high
+# Description: Create Event types and Raid instances with attendance tracking
+# Details:
+Create Event model with name, point values, and descriptions. Create Raid model with ForeignKey to Event, date/time, leader, and notes. Create RaidAttendance model linking Users to Raids with character name snapshots. Implement attendance parsing from character names to award points to User accounts. Set up DRF ViewSets with nested attendance endpoints.
+
+# Test Strategy:
+Test event creation, raid management, attendance tracking awards points to correct users based on character ownership
+
+# Subtasks:
+## 1. Create Event model with point values and descriptions [pending]
+### Dependencies: None
+### Description: Design and implement the Event model with fields for event names, point values, descriptions, and timestamps
+### Details:
+Create Event model in models.py with fields: name (CharField), description (TextField), points (IntegerField), created_at/updated_at timestamps, and appropriate string representation method
+
+## 2. Implement Raid model with event relationships and metadata [pending]
+### Dependencies: 6.1
+### Description: Create Raid model that links to Events and includes raid-specific metadata like date, location, and status
+### Details:
+Create Raid model with ForeignKey to Event, fields for raid_date, location, status, max_participants, and methods for calculating total attendance points
+
+## 3. Build RaidAttendance model with user-character linking [pending]
+### Dependencies: 6.2
+### Description: Implement RaidAttendance model to track which characters attended which raids with attendance status
+### Details:
+Create RaidAttendance model with ForeignKeys to Raid and Character, attendance_status choices (present, absent, late, etc.), points_awarded field, and unique_together constraint
+
+## 4. Create DRF ViewSets and nested attendance endpoints [pending]
+### Dependencies: 6.3
+### Description: Implement Django REST Framework ViewSets for Events, Raids, and RaidAttendance with nested serializers and endpoints
+### Details:
+Create ViewSets for all models, nested serializers showing attendance within raids, endpoints for bulk attendance updates, and proper filtering/pagination
+

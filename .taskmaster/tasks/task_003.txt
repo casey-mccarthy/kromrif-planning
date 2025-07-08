@@ -1,0 +1,37 @@
+# Task ID: 3
+# Title: Extended User Model and Role System
+# Status: done
+# Dependencies: 2
+# Priority: high
+# Description: Extend Django User model with Discord data and implement role-based permissions
+# Details:
+Extend Django User model with Discord ID, username, discriminator, and avatar URL fields populated from allauth. Implement role_group field with choices (developer, officer, recruiter, member, applicant, guest). Create Django Groups for permissions. Set up custom user manager and admin interface. Configure allauth signals to sync Discord data on login.
+
+# Test Strategy:
+Test user creation from Discord OAuth populates all fields correctly and role system enforces proper permissions
+
+# Subtasks:
+## 1. Extend User model with Discord fields and custom manager [done]
+### Dependencies: None
+### Description: Create custom User model extending AbstractUser with Discord-specific fields (discord_id, discord_username, discord_avatar, discord_discriminator) and implement custom manager for Discord user operations
+### Details:
+Add Discord fields to User model, create custom UserManager with Discord lookup methods, ensure proper field validation and constraints for Discord data
+
+## 2. Implement role_group field with choices and Django Groups integration [done]
+### Dependencies: 3.1
+### Description: Add role_group field to User model with predefined choices and establish relationship with Django's Group system for permission management
+### Details:
+Define role choices (e.g., Member, Moderator, Admin), create role_group field with choices, implement automatic Group assignment based on role, create migration for existing users
+
+## 3. Customize Django admin interface for enhanced User management [done]
+### Dependencies: 3.2
+### Description: Configure Django admin to display Discord fields, role management, and provide efficient user administration interface with filtering and search capabilities
+### Details:
+Create custom UserAdmin class, configure fieldsets to display Discord fields and role_group, add list filters for roles and Discord status, implement search functionality for Discord usernames
+
+## 4. Setup django-allauth signals for automatic Discord data synchronization [done]
+### Dependencies: 3.3
+### Description: Implement signal handlers to automatically populate Discord user data when users authenticate via Discord OAuth, ensuring data consistency and automatic updates
+### Details:
+Create signal handlers for social_account_added and social_account_updated signals, implement logic to extract and update Discord user data, handle edge cases for data conflicts and updates
+

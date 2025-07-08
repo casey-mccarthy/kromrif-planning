@@ -1,0 +1,43 @@
+# Task ID: 2
+# Title: Django-Allauth Discord OAuth Integration
+# Status: done
+# Dependencies: 1
+# Priority: high
+# Description: Configure django-allauth with Discord OAuth provider for authentication
+# Details:
+Install and configure django-allauth with Discord provider. Set up OAuth 2.0 flow with proper scopes (identify, email). Configure Discord app credentials in settings. Create custom allauth adapter to populate User model from Discord data. Set up authentication URLs and templates. Configure session management and token handling.
+
+# Test Strategy:
+Test complete Discord OAuth flow from login initiation to user creation and data population
+
+# Subtasks:
+## 1. Install and configure django-allauth [done]
+### Dependencies: None
+### Description: Install django-allauth package and add basic configuration to Django settings
+### Details:
+Install django-allauth via pip, add to INSTALLED_APPS, configure basic allauth settings including AUTHENTICATION_BACKENDS, SITE_ID, and basic allauth configuration in settings.py
+
+## 2. Set up Discord OAuth provider with app credentials [done]
+### Dependencies: 2.1
+### Description: Configure Discord OAuth application and add provider settings to Django
+### Details:
+Create Discord application in Discord Developer Portal, obtain client ID and secret, configure Discord provider in allauth settings with proper redirect URIs and app credentials
+
+## 3. Implement OAuth flow with proper scopes [done]
+### Dependencies: 2.2
+### Description: Configure OAuth authentication flow with required Discord scopes
+### Details:
+Set up OAuth flow configuration with appropriate Discord scopes (identify, email, guilds), configure callback handling, and ensure proper token exchange and validation
+
+## 4. Create custom allauth adapter for Discord data mapping [done]
+### Dependencies: 2.3
+### Description: Develop custom adapter to map Discord user data to Django user model
+### Details:
+Create custom SocialAccountAdapter to handle Discord-specific user data mapping, avatar URLs, Discord user IDs, and any additional Discord-specific fields to Django User model
+
+## 5. Set up authentication URLs, templates, and session management [done]
+### Dependencies: 2.4
+### Description: Configure URL patterns, create authentication templates, and implement session management
+### Details:
+Add allauth URLs to urlpatterns, create login/logout templates, configure session management, implement proper user authentication state handling, and set up post-authentication redirects
+

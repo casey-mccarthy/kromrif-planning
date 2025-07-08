@@ -6,7 +6,6 @@ import typing
 
 from allauth.account.adapter import DefaultAccountAdapter
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
-from django.conf import settings
 from django.http import HttpRequest
 
 logger = logging.getLogger(__name__)
@@ -20,14 +19,28 @@ if typing.TYPE_CHECKING:
 class AccountAdapter(DefaultAccountAdapter):
     def is_open_for_signup(self, request: HttpRequest) -> bool:
         # Always block regular account signup - only Discord OAuth allowed
+        del request  # unused but required by interface
         return False
 
 
 class SocialAccountAdapter(DefaultSocialAccountAdapter):
     def is_open_for_signup(self, request: HttpRequest, sociallogin: "SocialLogin") -> bool:
         # Only allow Discord OAuth registration
-        logger.debug(f"is_open_for_signup called for provider: {sociallogin.account.provider}")
-        result = sociallogin.account.provider == 'discord'
+        del request  # unused but required by interface
+        
+        # Get the actual provider instance
+        provider = sociallogin.account.get_provider()
+        provider_id = provider.id if hasattr(provider, 'id') else str(sociallogin.account.provider)
+        
+        logger.debug(f"is_open_for_signup called")
+        logger.debug(f"sociallogin.account.provider: '{sociallogin.account.provider}'")
+        logger.debug(f"provider instance: {provider}")
+        logger.debug(f"provider.id: {getattr(provider, 'id', 'N/A')}")
+        logger.debug(f"provider_id resolved to: '{provider_id}'")
+        
+        # Check if this is Discord provider
+        # The provider.id should be 'discord' for Discord
+        result = provider_id == 'discord'
         logger.debug(f"is_open_for_signup returning: {result}")
         return result
 
@@ -38,6 +51,15 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
         See: https://docs.allauth.org/en/latest/socialaccount/advanced.html#creating-and-populating-user-instances
         """
         logger.debug(f"populate_user called for provider: {sociallogin.account.provider}")
+        logger.debug(f"sociallogin type: {type(sociallogin)}")
+        logger.debug(f"sociallogin.account type: {type(sociallogin.account)}")
+        
+        # Check if there's a get_provider() method
+        if hasattr(sociallogin, 'get_provider'):
+            logger.debug(f"sociallogin.get_provider(): {sociallogin.get_provider()}")
+        if hasattr(sociallogin.account, 'get_provider'):
+            logger.debug(f"sociallogin.account.get_provider(): {sociallogin.account.get_provider()}")
+            
         logger.debug(f"Discord extra_data: {sociallogin.account.extra_data}")
         logger.debug(f"Data parameter: {data}")
         

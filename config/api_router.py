@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework.routers import SimpleRouter
 
@@ -10,4 +11,9 @@ router.register("users", UserViewSet)
 
 
 app_name = "api"
-urlpatterns = router.urls
+urlpatterns = [
+    # Include the default router URLs
+    *router.urls,
+    # Include raiders API URLs
+    path("raiders/", include("kromrif_planning.raiders.api.urls")),
+]
