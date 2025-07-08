@@ -8,7 +8,22 @@ from .models import User
 
 @admin.register(User)
 class UserAdmin(auth_admin.UserAdmin):
-    fieldsets = auth_admin.UserAdmin.fieldsets + (
+    fieldsets = (
+        (None, {"fields": ("username", "password")}),
+        ("Personal info", {"fields": ("name", "email")}),
+        (
+            "Permissions",
+            {
+                "fields": (
+                    "is_active",
+                    "is_staff",
+                    "is_superuser",
+                    "groups",
+                    "user_permissions",
+                ),
+            },
+        ),
+        ("Important dates", {"fields": ("last_login", "date_joined")}),
         (
             "Discord Information",
             {
@@ -25,7 +40,6 @@ class UserAdmin(auth_admin.UserAdmin):
             {
                 "fields": (
                     "role_group",
-                    "name",
                 )
             },
         ),
