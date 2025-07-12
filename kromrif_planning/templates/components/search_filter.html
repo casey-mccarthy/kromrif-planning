@@ -1,0 +1,226 @@
+{% comment %}
+Enhanced Search and Filter Component with HTMX
+
+Usage:
+{% include 'components/search_filter.html' with search_url='/api/search/' search_target='#results' filters=filter_options %}
+
+Parameters:
+- search_url: URL for search endpoint (required)
+- search_target: HTMX target for results (required)
+- search_placeholder: Placeholder text (default: 'Search...')
+- search_debounce: Debounce delay in ms (default: 300)
+- filters: List of filter objects (optional)
+- show_clear: Boolean, show clear button (default: true)
+- show_advanced: Boolean, show advanced filters toggle (default: false)
+- search_value: Initial search value (optional)
+- compact: Boolean, compact layout (default: false)
+{% endcomment %}
+
+{% with search_placeholder|default:'Search...' as placeholder %}
+{% with search_debounce|default:300 as debounce %}
+{% with show_clear|default:true as clear %}
+{% with show_advanced|default:false as advanced %}
+{% with compact|default:false as is_compact %}
+
+<div class="{% if not is_compact %}bg-white shadow rounded-lg{% endif %}" 
+     x-data="searchFilter()" 
+     x-init="init()">
+    
+    {% if not is_compact %}
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-medium text-gray-900">Search & Filters</h2>
+        </div>
+    {% endif %}
+    
+    <div class="{% if not is_compact %}p-6{% endif %}">
+        <!-- Main Search -->
+        <div class="{% if not is_compact %}mb-4{% endif %}">
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+                
+                <input type="text" 
+                       name="search"
+                       x-model="searchTerm"
+                       x-on:input.debounce.{{ debounce }}ms="performSearch()"
+                       placeholder="{{ placeholder }}"
+                       value="{{ search_value|default:'' }}"
+                       class="block w-full pl-10 {% if clear %}pr-10{% else %}pr-3{% endif %} py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                       hx-get="{{ search_url }}"
+                       hx-target="{{ search_target }}"
+                       hx-trigger="keyup changed delay:{{ debounce }}ms, search"
+                       hx-include="[name='search'], [name^='filter_']"
+                       hx-indicator="#search-loading">
+                
+                {% if clear %}
+                    <div x-show="searchTerm.length > 0" 
+                         x-transition
+                         class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                        <button type="button" 
+                                x-on:click="clearSearch()"
+                                class="text-gray-400 hover:text-gray-600">
+                            <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                    </div>
+                {% endif %}
+                
+                <div id="search-loading" class="htmx-indicator absolute inset-y-0 right-0 pr-3 flex items-center">
+                    {% include 'components/loading_spinner.html' with spinner_size='sm' %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Quick Filters -->
+        {% if filters %}
+            <div class="{% if not is_compact %}mb-4{% else %}mt-2{% endif %}">
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-sm font-medium text-gray-700">Quick filters:</span>
+                    {% for filter in filters %}
+                        <button type="button"
+                                x-on:click="toggleFilter('{{ filter.key }}', '{{ filter.value }}')"
+                                x-bind:class="activeFilters['{{ filter.key }}'] === '{{ filter.value }}' ? 
+                                    'bg-indigo-100 text-indigo-800 border-indigo-200' : 
+                                    'bg-gray-100 text-gray-800 border-gray-200'"
+                                class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border transition-colors">
+                            {{ filter.label }}
+                        </button>
+                    {% endfor %}
+                    
+                    <button type="button"
+                            x-show="Object.keys(activeFilters).length > 0"
+                            x-on:click="clearFilters()"
+                            x-transition
+                            class="text-sm text-indigo-600 hover:text-indigo-800">
+                        Clear filters
+                    </button>
+                </div>
+            </div>
+        {% endif %}
+        
+        <!-- Advanced Filters -->
+        {% if advanced %}
+            <div x-show="showAdvanced" 
+                 x-transition
+                 class="{% if not is_compact %}mt-4 pt-4 border-t border-gray-200{% else %}mt-2{% endif %}">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {% block advanced_filters %}
+                        <!-- Advanced filter fields go here -->
+                    {% endblock %}
+                </div>
+            </div>
+            
+            <div class="{% if not is_compact %}mt-4{% else %}mt-2{% endif %}">
+                <button type="button"
+                        x-on:click="showAdvanced = !showAdvanced"
+                        class="inline-flex items-center text-sm text-indigo-600 hover:text-indigo-800">
+                    <span x-text="showAdvanced ? 'Hide advanced filters' : 'Show advanced filters'"></span>
+                    <svg x-bind:class="showAdvanced ? 'rotate-180' : ''" 
+                         class="ml-1 h-4 w-4 transform transition-transform"
+                         xmlns="http://www.w3.org/2000/svg" 
+                         viewBox="0 0 20 20" 
+                         fill="currentColor">
+                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+        {% endif %}
+        
+        <!-- Hidden filter inputs -->
+        <div style="display: none;">
+            <template x-for="(value, key) in activeFilters" x-key="key">
+                <input x-bind:name="'filter_' + key" x-bind:value="value" type="hidden">
+            </template>
+        </div>
+    </div>
+</div>
+
+<script>
+function searchFilter() {
+    return {
+        searchTerm: '{{ search_value|default:"" }}',
+        activeFilters: {},
+        showAdvanced: false,
+        
+        init() {
+            // Initialize from URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            this.searchTerm = urlParams.get('search') || '';
+            
+            // Load filters from URL
+            for (const [key, value] of urlParams.entries()) {
+                if (key.startsWith('filter_')) {
+                    this.activeFilters[key.replace('filter_', '')] = value;
+                }
+            }
+        },
+        
+        performSearch() {
+            // Trigger HTMX request
+            const searchInput = this.$el.querySelector('input[name="search"]');
+            htmx.trigger(searchInput, 'search');
+            
+            // Update URL
+            this.updateURL();
+        },
+        
+        toggleFilter(key, value) {
+            if (this.activeFilters[key] === value) {
+                delete this.activeFilters[key];
+            } else {
+                this.activeFilters[key] = value;
+            }
+            
+            // Trigger search
+            this.$nextTick(() => {
+                this.performSearch();
+            });
+        },
+        
+        clearSearch() {
+            this.searchTerm = '';
+            this.performSearch();
+        },
+        
+        clearFilters() {
+            this.activeFilters = {};
+            this.performSearch();
+        },
+        
+        updateURL() {
+            const url = new URL(window.location);
+            
+            // Update search parameter
+            if (this.searchTerm) {
+                url.searchParams.set('search', this.searchTerm);
+            } else {
+                url.searchParams.delete('search');
+            }
+            
+            // Update filter parameters
+            for (const [key, value] of url.searchParams.entries()) {
+                if (key.startsWith('filter_')) {
+                    url.searchParams.delete(key);
+                }
+            }
+            
+            for (const [key, value] of Object.entries(this.activeFilters)) {
+                url.searchParams.set('filter_' + key, value);
+            }
+            
+            // Update browser history
+            window.history.replaceState({}, '', url);
+        }
+    }
+}
+</script>
+
+{% endwith %} {# compact #}
+{% endwith %} {# advanced #}
+{% endwith %} {# clear #}
+{% endwith %} {# debounce #}
+{% endwith %} {# placeholder #}

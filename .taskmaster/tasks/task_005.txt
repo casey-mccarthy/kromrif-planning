@@ -1,0 +1,43 @@
+# Task ID: 5
+# Title: DKP Point System with User-Based Tracking
+# Status: pending
+# Dependencies: 4
+# Priority: high
+# Description: Implement single-pool DKP system with points awarded to users, not characters
+# Details:
+Create UserPointsSummary model for current balances. Create PointAdjustment model for all point changes (raids, bonuses, penalties, purchases). Implement Django signals for automatic summary updates. Create point calculation methods using Django aggregation. Set up point history tracking with character name snapshots. Implement validation to prevent negative balances.
+
+# Test Strategy:
+Test point calculations are accurate, summaries update automatically, and character reassignment doesn't affect user point totals
+
+# Subtasks:
+## 1. Create UserPointsSummary model for current DKP balances [pending]
+### Dependencies: None
+### Description: Design and implement a model to store current DKP point balances for each user with optimized queries
+### Details:
+Create UserPointsSummary model with fields for user, total_points, last_updated, and appropriate indexes. Include model validation and string representation methods.
+
+## 2. Implement PointAdjustment model for tracking all DKP changes [pending]
+### Dependencies: None
+### Description: Create a comprehensive audit trail model for all point adjustments with proper categorization
+### Details:
+Design PointAdjustment model with fields for user, amount, adjustment_type, reason, timestamp, created_by, and related_object. Include choices for adjustment types and proper foreign key relationships.
+
+## 3. Implement Django signals for automatic summary updates [pending]
+### Dependencies: 5.1, 5.2
+### Description: Create signal handlers to automatically update UserPointsSummary when PointAdjustments are created
+### Details:
+Set up post_save and post_delete signals on PointAdjustment model to trigger automatic updates to UserPointsSummary. Ensure atomic transactions and handle edge cases.
+
+## 4. Develop point calculation methods using Django aggregation [pending]
+### Dependencies: 5.2
+### Description: Create efficient methods to calculate point totals and verify summary accuracy using database aggregation
+### Details:
+Implement manager methods and utility functions for calculating point totals, handling different adjustment types, and providing verification methods to ensure summary accuracy against actual adjustments.
+
+## 5. Add validation and negative balance prevention [pending]
+### Dependencies: 5.1, 5.2
+### Description: Implement comprehensive validation to prevent invalid point adjustments and negative balances
+### Details:
+Create model validation methods, custom validators, and business logic to prevent negative balances, validate adjustment amounts, and ensure data integrity. Include proper error handling and user feedback.
+

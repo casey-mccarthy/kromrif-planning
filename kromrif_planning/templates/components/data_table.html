@@ -1,0 +1,340 @@
+{% comment %}
+Enhanced Data Table Component with HTMX
+
+Usage:
+{% include 'components/data_table.html' with table_data=data_list columns=column_definitions %}
+
+Parameters:
+- table_data: List of data objects (required)
+- columns: List of column definitions (required)
+- table_id: Unique table ID (optional)
+- sortable: Boolean, enable sorting (default: true)
+- selectable: Boolean, enable row selection (default: false)
+- selection_name: Name for selection checkboxes (default: 'selected_items')
+- sort_url: URL for server-side sorting (optional)
+- striped: Boolean, striped rows (default: true)
+- hover: Boolean, hover effects (default: true)
+- compact: Boolean, compact spacing (default: false)
+- responsive: Boolean, responsive design (default: true)
+- show_empty: Boolean, show empty state (default: true)
+- empty_message: Custom empty message (optional)
+{% endcomment %}
+
+{% with table_id|default:'data-table' as id %}
+{% with sortable|default:true as sort %}
+{% with selectable|default:false as select %}
+{% with selection_name|default:'selected_items' as selection %}
+{% with striped|default:true as stripe %}
+{% with hover|default:true as hover_effect %}
+{% with compact|default:false as is_compact %}
+{% with responsive|default:true as is_responsive %}
+{% with show_empty|default:true as empty %}
+{% with empty_message|default:'No data available' as empty_msg %}
+
+<div class="{% if is_responsive %}overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg{% endif %}"
+     x-data="dataTable()" 
+     x-init="init()">
+    
+    {% if table_data %}
+        <table id="{{ id }}" 
+               class="{% if is_responsive %}min-w-full{% else %}w-full{% endif %} divide-y divide-gray-300">
+            <thead class="bg-gray-50">
+                <tr>
+                    {% if select %}
+                        <th scope="col" class="relative w-12 px-6 sm:w-16 sm:px-8">
+                            <input type="checkbox" 
+                                   name="select_all"
+                                   x-on:change="selectAll($event.target.checked)"
+                                   class="absolute left-4 top-1/2 -mt-2 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 sm:left-6">
+                        </th>
+                    {% endif %}
+                    
+                    {% for column in columns %}
+                        <th scope="col" 
+                            class="{% if is_compact %}px-3 py-2{% else %}px-6 py-3{% endif %} text-left text-xs font-medium text-gray-500 uppercase tracking-wider
+                                   {% if sort and column.sortable %}cursor-pointer hover:bg-gray-100{% endif %}"
+                            {% if sort and column.sortable %}
+                                x-on:click="toggleSort('{{ column.key }}')"
+                                x-bind:class="getSortClass('{{ column.key }}')"
+                            {% endif %}>
+                            <div class="flex items-center">
+                                <span>{{ column.label }}</span>
+                                {% if sort and column.sortable %}
+                                    <span x-show="sortColumn === '{{ column.key }}'" class="ml-2">
+                                        <svg x-show="sortDirection === 'asc'" 
+                                             class="w-4 h-4 text-gray-400" 
+                                             fill="none" 
+                                             stroke="currentColor" 
+                                             viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
+                                        </svg>
+                                        <svg x-show="sortDirection === 'desc'" 
+                                             class="w-4 h-4 text-gray-400" 
+                                             fill="none" 
+                                             stroke="currentColor" 
+                                             viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                        </svg>
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for row in table_data %}
+                    <tr class="{% if stripe and forloop.counter0|divisibleby:2 %}bg-gray-50{% else %}bg-white{% endif %}
+                               {% if hover_effect %}hover:bg-gray-50{% endif %}
+                               {% if select %}cursor-pointer{% endif %}
+                               transition-colors duration-150"
+                        {% if select %}
+                            x-on:click="toggleRowSelection($event, '{{ row.id|default:forloop.counter0 }}')"
+                        {% endif %}>
+                        
+                        {% if select %}
+                            <td class="relative w-12 px-6 sm:w-16 sm:px-8">
+                                <input type="checkbox" 
+                                       name="{{ selection }}"
+                                       value="{{ row.id|default:forloop.counter0 }}"
+                                       x-on:change="updateSelectionCount()"
+                                       x-on:click.stop
+                                       class="absolute left-4 top-1/2 -mt-2 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 sm:left-6">
+                            </td>
+                        {% endif %}
+                        
+                        {% for column in columns %}
+                            <td class="{% if is_compact %}px-3 py-2{% else %}px-6 py-4{% endif %} whitespace-nowrap">
+                                {% if column.template %}
+                                    {% include column.template with item=row %}
+                                {% elif column.type == 'link' %}
+                                    <a href="{{ row|lookup:column.url_key }}" 
+                                       class="text-indigo-600 hover:text-indigo-900 font-medium">
+                                        {{ row|lookup:column.key }}
+                                    </a>
+                                {% elif column.type == 'badge' %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                                                 {% if row|lookup:column.key == column.badge_success %}bg-green-100 text-green-800
+                                                 {% elif row|lookup:column.key == column.badge_warning %}bg-yellow-100 text-yellow-800
+                                                 {% elif row|lookup:column.key == column.badge_danger %}bg-red-100 text-red-800
+                                                 {% else %}bg-gray-100 text-gray-800
+                                                 {% endif %}">
+                                        {{ row|lookup:column.key }}
+                                    </span>
+                                {% elif column.type == 'date' %}
+                                    <span class="text-sm text-gray-900">
+                                        {{ row|lookup:column.key|date:column.date_format|default:"M d, Y" }}
+                                    </span>
+                                {% elif column.type == 'number' %}
+                                    <span class="text-sm font-mono text-gray-900">
+                                        {{ row|lookup:column.key|floatformat:column.decimal_places|default:0 }}
+                                    </span>
+                                {% elif column.type == 'actions' %}
+                                    <div class="flex items-center space-x-2">
+                                        {% for action in column.actions %}
+                                            {% if action.type == 'link' %}
+                                                <a href="{{ row|lookup:action.url_key }}" 
+                                                   class="text-indigo-600 hover:text-indigo-900 text-sm font-medium">
+                                                    {{ action.label }}
+                                                </a>
+                                            {% elif action.type == 'button' %}
+                                                <button type="button"
+                                                        {% if action.htmx_get %}hx-get="{{ action.htmx_get }}"{% endif %}
+                                                        {% if action.htmx_post %}hx-post="{{ action.htmx_post }}"{% endif %}
+                                                        {% if action.htmx_target %}hx-target="{{ action.htmx_target }}"{% endif %}
+                                                        {% if action.confirm %}hx-confirm="{{ action.confirm }}"{% endif %}
+                                                        class="text-{{ action.color|default:'indigo' }}-600 hover:text-{{ action.color|default:'indigo' }}-900 text-sm font-medium">
+                                                    {{ action.label }}
+                                                </button>
+                                            {% endif %}
+                                            {% if not forloop.last %}
+                                                <span class="text-gray-300">|</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <div class="text-sm text-gray-900">
+                                        {{ row|lookup:column.key|default:'-' }}
+                                    </div>
+                                {% endif %}
+                            </td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% elif empty %}
+        <!-- Empty State -->
+        <div class="text-center py-12">
+            <svg class="mx-auto h-12 w-12 text-gray-400" 
+                 fill="none" 
+                 stroke="currentColor" 
+                 viewBox="0 0 24 24">
+                <path stroke-linecap="round" 
+                      stroke-linejoin="round" 
+                      stroke-width="2" 
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                </path>
+            </svg>
+            <h3 class="mt-2 text-sm font-medium text-gray-900">{{ empty_msg }}</h3>
+            {% block empty_actions %}
+                <!-- Empty state actions can be added here -->
+            {% endblock %}
+        </div>
+    {% endif %}
+</div>
+
+<script>
+function dataTable() {
+    return {
+        sortColumn: null,
+        sortDirection: 'asc',
+        selectedItems: [],
+        
+        init() {
+            // Initialize sorting from URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            this.sortColumn = urlParams.get('sort') || null;
+            this.sortDirection = urlParams.get('direction') || 'asc';
+            
+            // Update selection count
+            this.updateSelectionCount();
+        },
+        
+        toggleSort(column) {
+            if (this.sortColumn === column) {
+                this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                this.sortColumn = column;
+                this.sortDirection = 'asc';
+            }
+            
+            {% if sort_url %}
+                // Server-side sorting
+                this.performSort();
+            {% else %}
+                // Client-side sorting
+                this.sortTable();
+            {% endif %}
+        },
+        
+        getSortClass(column) {
+            return {
+                'bg-gray-100': this.sortColumn === column
+            };
+        },
+        
+        performSort() {
+            const url = new URL('{{ sort_url }}', window.location.origin);
+            url.searchParams.set('sort', this.sortColumn);
+            url.searchParams.set('direction', this.sortDirection);
+            
+            // Preserve other query parameters
+            const currentParams = new URLSearchParams(window.location.search);
+            for (const [key, value] of currentParams.entries()) {
+                if (key !== 'sort' && key !== 'direction') {
+                    url.searchParams.set(key, value);
+                }
+            }
+            
+            // Perform HTMX request
+            htmx.ajax('GET', url.toString(), {
+                target: '#{{ id }}',
+                swap: 'outerHTML'
+            });
+            
+            // Update URL
+            window.history.replaceState({}, '', url.toString());
+        },
+        
+        sortTable() {
+            // Client-side sorting implementation
+            const tbody = this.$el.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            
+            rows.sort((a, b) => {
+                const aText = this.getCellText(a, this.sortColumn);
+                const bText = this.getCellText(b, this.sortColumn);
+                
+                let comparison = 0;
+                if (aText < bText) comparison = -1;
+                if (aText > bText) comparison = 1;
+                
+                return this.sortDirection === 'desc' ? -comparison : comparison;
+            });
+            
+            // Re-append sorted rows
+            rows.forEach(row => tbody.appendChild(row));
+        },
+        
+        getCellText(row, column) {
+            // Get cell text for sorting - this would need to be customized
+            // based on your column configuration
+            const cells = row.querySelectorAll('td');
+            const columnIndex = this.getColumnIndex(column);
+            return cells[columnIndex]?.textContent.trim() || '';
+        },
+        
+        getColumnIndex(column) {
+            // Map column key to index - simplified implementation
+            const columns = {{ columns|safe }};
+            return columns.findIndex(col => col.key === column) + ({{ select }} ? 1 : 0);
+        },
+        
+        selectAll(checked) {
+            const checkboxes = this.$el.querySelectorAll('input[name="{{ selection }}"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = checked;
+            });
+            this.updateSelectionCount();
+        },
+        
+        toggleRowSelection(event, itemId) {
+            // Only toggle if clicking on the row, not on interactive elements
+            if (event.target.tagName !== 'INPUT' && 
+                event.target.tagName !== 'BUTTON' && 
+                event.target.tagName !== 'A') {
+                const checkbox = this.$el.querySelector(`input[value="${itemId}"]`);
+                if (checkbox) {
+                    checkbox.checked = !checkbox.checked;
+                    this.updateSelectionCount();
+                }
+            }
+        },
+        
+        updateSelectionCount() {
+            const checkboxes = this.$el.querySelectorAll('input[name="{{ selection }}"]:checked');
+            this.selectedItems = Array.from(checkboxes).map(cb => cb.value);
+            
+            // Update select all checkbox state
+            const selectAllCheckbox = this.$el.querySelector('input[name="select_all"]');
+            const allCheckboxes = this.$el.querySelectorAll('input[name="{{ selection }}"]');
+            
+            if (selectAllCheckbox && allCheckboxes.length > 0) {
+                selectAllCheckbox.checked = this.selectedItems.length === allCheckboxes.length;
+                selectAllCheckbox.indeterminate = this.selectedItems.length > 0 && this.selectedItems.length < allCheckboxes.length;
+            }
+            
+            // Dispatch event for bulk actions component
+            this.$el.dispatchEvent(new CustomEvent('selectionChanged', {
+                detail: { 
+                    selectedItems: this.selectedItems,
+                    count: this.selectedItems.length 
+                }
+            }));
+        }
+    }
+}
+</script>
+
+{% endwith %} {# empty_msg #}
+{% endwith %} {# empty #}
+{% endwith %} {# is_responsive #}
+{% endwith %} {# is_compact #}
+{% endwith %} {# hover_effect #}
+{% endwith %} {# stripe #}
+{% endwith %} {# selection #}
+{% endwith %} {# select #}
+{% endwith %} {# sort #}
+{% endwith %} {# id #}

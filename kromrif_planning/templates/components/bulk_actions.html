@@ -1,0 +1,198 @@
+{% comment %}
+Bulk Actions Component with HTMX
+
+Usage:
+{% include 'components/bulk_actions.html' with actions=bulk_actions_list selection_name='selected_items' %}
+
+Parameters:
+- actions: List of action objects (required)
+- selection_name: Name attribute for checkboxes (default: 'selected_items')
+- target_url: Base URL for bulk actions (required)
+- confirm_dangerous: Boolean, confirm dangerous actions (default: true)
+- show_count: Boolean, show selected count (default: true)
+{% endcomment %}
+
+{% with selection_name|default:'selected_items' as selection %}
+{% with confirm_dangerous|default:true as confirm %}
+{% with show_count|default:true as count %}
+
+<div x-data="bulkActions()" x-show="selectedCount > 0" x-transition class="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-4">
+    <div class="flex items-center justify-between">
+        <div class="flex items-center">
+            {% if count %}
+                <span class="text-sm font-medium text-indigo-900">
+                    <span x-text="selectedCount"></span> item<span x-show="selectedCount !== 1">s</span> selected
+                </span>
+            {% endif %}
+            
+            <button type="button"
+                    x-on:click="clearSelection()"
+                    class="ml-4 text-sm text-indigo-600 hover:text-indigo-800">
+                Clear selection
+            </button>
+        </div>
+        
+        <div class="flex items-center space-x-2">
+            {% for action in actions %}
+                <button type="button"
+                        x-on:click="performAction('{{ action.key }}', '{{ action.url }}', {{ action.dangerous|yesno:'true,false' }})"
+                        class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md 
+                               {% if action.dangerous %}
+                                   text-red-700 bg-red-100 hover:bg-red-200
+                               {% elif action.primary %}
+                                   text-white bg-indigo-600 hover:bg-indigo-700
+                               {% else %}
+                                   text-indigo-700 bg-indigo-100 hover:bg-indigo-200
+                               {% endif %}
+                               transition-colors duration-200">
+                    {% if action.icon %}
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            {% if action.icon == 'delete' %}
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            {% elif action.icon == 'edit' %}
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                            {% elif action.icon == 'download' %}
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            {% elif action.icon == 'archive' %}
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path>
+                            {% elif action.icon == 'move' %}
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16l-4-4m0 0l4-4m-4 4h18M17 8l4 4m0 0l-4 4m4-4H3"></path>
+                            {% endif %}
+                        </svg>
+                    {% endif %}
+                    {{ action.label }}
+                </button>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Loading indicator -->
+    <div x-show="loading" x-transition class="mt-4">
+        <div class="flex items-center">
+            {% include 'components/loading_spinner.html' with spinner_size='sm' %}
+            <span class="ml-2 text-sm text-indigo-700" x-text="loadingMessage"></span>
+        </div>
+    </div>
+</div>
+
+<script>
+function bulkActions() {
+    return {
+        selectedCount: 0,
+        loading: false,
+        loadingMessage: '',
+        
+        init() {
+            this.updateCount();
+            
+            // Listen for checkbox changes
+            this.$el.addEventListener('change', (e) => {
+                if (e.target.name === '{{ selection }}' || e.target.name === 'select_all') {
+                    this.updateCount();
+                }
+            });
+            
+            // Listen for select all changes
+            document.addEventListener('change', (e) => {
+                if (e.target.name === 'select_all') {
+                    this.handleSelectAll(e.target.checked);
+                }
+            });
+        },
+        
+        updateCount() {
+            const checkboxes = document.querySelectorAll('input[name="{{ selection }}"]:checked');
+            this.selectedCount = checkboxes.length;
+        },
+        
+        clearSelection() {
+            const checkboxes = document.querySelectorAll('input[name="{{ selection }}"], input[name="select_all"]');
+            checkboxes.forEach(cb => cb.checked = false);
+            this.updateCount();
+        },
+        
+        handleSelectAll(checked) {
+            const checkboxes = document.querySelectorAll('input[name="{{ selection }}"]');
+            checkboxes.forEach(cb => cb.checked = checked);
+            this.updateCount();
+        },
+        
+        async performAction(actionKey, actionUrl, dangerous = false) {
+            const checkboxes = document.querySelectorAll('input[name="{{ selection }}"]:checked');
+            const selectedIds = Array.from(checkboxes).map(cb => cb.value);
+            
+            if (selectedIds.length === 0) {
+                KromrifUtils.showNotification('No items selected', 'warning');
+                return;
+            }
+            
+            // Confirm dangerous actions
+            {% if confirm %}
+                if (dangerous) {
+                    const confirmed = confirm(`Are you sure you want to ${actionKey} ${selectedIds.length} item${selectedIds.length !== 1 ? 's' : ''}? This action cannot be undone.`);
+                    if (!confirmed) return;
+                }
+            {% endif %}
+            
+            this.loading = true;
+            this.loadingMessage = `Processing ${actionKey}...`;
+            
+            try {
+                // Prepare form data
+                const formData = new FormData();
+                formData.append('action', actionKey);
+                selectedIds.forEach(id => formData.append('{{ selection }}', id));
+                formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]')?.value || '');
+                
+                // Perform HTMX request
+                const response = await fetch(actionUrl, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'HX-Request': 'true'
+                    }
+                });
+                
+                if (response.ok) {
+                    const result = await response.text();
+                    
+                    // Handle different response types
+                    if (response.headers.get('content-type')?.includes('application/json')) {
+                        const data = JSON.parse(result);
+                        KromrifUtils.showNotification(data.message || `${actionKey} completed successfully`, 'success');
+                        
+                        // Refresh the page if needed
+                        if (data.refresh) {
+                            window.location.reload();
+                        }
+                    } else {
+                        // HTML response - update target
+                        const target = document.querySelector('{{ search_target|default:"#main-content" }}');
+                        if (target) {
+                            target.innerHTML = result;
+                        }
+                        
+                        KromrifUtils.showNotification(`${actionKey} completed successfully`, 'success');
+                    }
+                    
+                    this.clearSelection();
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+            } catch (error) {
+                console.error('Bulk action error:', error);
+                KromrifUtils.showNotification(`Failed to ${actionKey}: ${error.message}`, 'error');
+            } finally {
+                this.loading = false;
+                this.loadingMessage = '';
+            }
+        }
+    }
+}
+</script>
+
+{% endwith %} {# count #}
+{% endwith %} {# confirm #}
+{% endwith %} {# selection #}

@@ -1,0 +1,78 @@
+{% comment %}
+Reusable HTMX Form Component
+
+Usage:
+{% include 'components/htmx_form.html' with form_action='/api/endpoint/' form_target='#result-div' %}
+    <!-- Form fields go here -->
+{% endinclude %}
+
+Parameters:
+- form_action: URL to submit the form to (required)
+- form_target: HTMX target selector (required)
+- form_method: 'get', 'post', 'put', 'delete' (default: 'post')
+- form_swap: HTMX swap method (default: 'innerHTML')
+- form_trigger: HTMX trigger (default: 'submit')
+- form_indicator: Loading indicator selector (optional)
+- form_confirm: Confirmation message before submit (optional)
+- form_include: Additional elements to include (optional)
+- form_encoding: Form encoding type (optional)
+- form_boost: Boolean, use HTMX boost (default: false)
+- form_push_url: Boolean, push URL to history (default: false)
+- form_replace_url: Boolean, replace URL in history (default: false)
+- form_reset: Boolean, reset form after successful submit (default: false)
+- form_validate: Boolean, use client-side validation (default: true)
+- form_class: Additional CSS classes (optional)
+- form_id: Form ID (optional)
+{% endcomment %}
+
+{% with form_method|default:'post' as method %}
+{% with form_swap|default:'innerHTML' as swap %}
+{% with form_trigger|default:'submit' as trigger %}
+{% with form_boost|default:false as boost %}
+{% with form_push_url|default:false as push_url %}
+{% with form_replace_url|default:false as replace_url %}
+{% with form_reset|default:false as reset %}
+{% with form_validate|default:true as validate %}
+
+<form method="{{ method }}"
+      {% if form_id %}id="{{ form_id }}"{% endif %}
+      {% if form_encoding %}enctype="{{ form_encoding }}"{% endif %}
+      {% if form_class %}class="{{ form_class }}"{% endif %}
+      {% if boost %}hx-boost="true"{% endif %}
+      {% if method|lower == 'get' %}
+          hx-get="{{ form_action }}"
+      {% elif method|lower == 'post' %}
+          hx-post="{{ form_action }}"
+      {% elif method|lower == 'put' %}
+          hx-put="{{ form_action }}"
+      {% elif method|lower == 'delete' %}
+          hx-delete="{{ form_action }}"
+      {% endif %}
+      hx-target="{{ form_target }}"
+      hx-swap="{{ swap }}"
+      {% if trigger != 'submit' %}hx-trigger="{{ trigger }}"{% endif %}
+      {% if form_indicator %}hx-indicator="{{ form_indicator }}"{% endif %}
+      {% if form_confirm %}hx-confirm="{{ form_confirm }}"{% endif %}
+      {% if form_include %}hx-include="{{ form_include }}"{% endif %}
+      {% if push_url %}hx-push-url="true"{% endif %}
+      {% if replace_url %}hx-replace-url="true"{% endif %}
+      {% if reset %}hx-on-htmx-after-request="if(event.detail.successful) this.reset()"{% endif %}
+      {% if not validate %}novalidate{% endif %}>
+    
+    {% if method|lower == 'post' or method|lower == 'put' or method|lower == 'delete' %}
+        {% csrf_token %}
+    {% endif %}
+    
+    {% block form_content %}
+        <!-- Form fields will be inserted here -->
+    {% endblock %}
+</form>
+
+{% endwith %} {# validate #}
+{% endwith %} {# reset #}
+{% endwith %} {# replace_url #}
+{% endwith %} {# push_url #}
+{% endwith %} {# boost #}
+{% endwith %} {# trigger #}
+{% endwith %} {# swap #}
+{% endwith %} {# method #}

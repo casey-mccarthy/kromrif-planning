@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Delete {{ rank.name }} - Ranks - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+        <nav class="flex mb-4" aria-label="Breadcrumb">
+            <ol class="inline-flex items-center space-x-1 md:space-x-3">
+                <li class="inline-flex items-center">
+                    <a href="{% url 'raiders:guild-roster' %}" class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-indigo-600">
+                        Guild Roster
+                    </a>
+                </li>
+                <li>
+                    <div class="flex items-center">
+                        <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 111.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                        </svg>
+                        <a href="{% url 'raiders:rank-list' %}" class="ml-1 text-sm font-medium text-gray-700 hover:text-indigo-600">Ranks</a>
+                    </div>
+                </li>
+                <li>
+                    <div class="flex items-center">
+                        <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 111.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                        </svg>
+                        <a href="{% url 'raiders:rank-detail' rank.pk %}" class="ml-1 text-sm font-medium text-gray-700 hover:text-indigo-600">{{ rank.name }}</a>
+                    </div>
+                </li>
+                <li>
+                    <div class="flex items-center">
+                        <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 111.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span class="ml-1 text-sm font-medium text-gray-500">Delete</span>
+                    </div>
+                </li>
+            </ol>
+        </nav>
+        
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Delete Rank</h1>
+            <p class="mt-2 text-sm text-gray-600">This action cannot be undone.</p>
+        </div>
+    </div>
+
+    <!-- Confirmation Card -->
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <svg class="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-lg font-medium text-gray-900">
+                        Confirm Deletion
+                    </h3>
+                </div>
+            </div>
+        </div>
+        
+        <div class="px-6 py-4">
+            <!-- Rank Info -->
+            <div class="mb-6">
+                <div class="flex items-center mb-4">
+                    <div class="w-8 h-8 rounded-full border-2 border-white shadow-sm mr-3"
+                         style="background-color: {{ rank.color }};"></div>
+                    <div>
+                        <h4 class="text-lg font-medium text-gray-900">{{ rank.name }}</h4>
+                        <p class="text-sm text-gray-500">Level {{ rank.level }}</p>
+                    </div>
+                </div>
+                
+                {% if rank.description %}
+                    <p class="text-sm text-gray-700 mb-4">{{ rank.description|truncatechars:100 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Impact Warning -->
+            {% if rank.character_set.exists %}
+                <div class="rounded-md bg-yellow-50 p-4 mb-6">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-medium text-yellow-800">
+                                Warning: Characters will be affected
+                            </h3>
+                            <div class="mt-2 text-sm text-yellow-700">
+                                <p>
+                                    This rank is currently assigned to <strong>{{ rank.character_set.count }} character{{ rank.character_set.count|pluralize }}</strong>. 
+                                    Deleting this rank will remove the rank assignment from these characters.
+                                </p>
+                                <div class="mt-3">
+                                    <p class="font-medium">Affected characters:</p>
+                                    <ul class="mt-1 list-disc list-inside">
+                                        {% for character in rank.character_set.all|slice:":5" %}
+                                            <li>{{ character.name }} ({{ character.user.username }})</li>
+                                        {% endfor %}
+                                        {% if rank.character_set.count > 5 %}
+                                            <li class="text-yellow-600">... and {{ rank.character_set.count|add:"-5" }} more characters</li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
+            <div class="rounded-md bg-red-50 p-4 mb-6">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-red-800">
+                            This action cannot be undone
+                        </h3>
+                        <div class="mt-2 text-sm text-red-700">
+                            <p>
+                                Once you delete this rank, it will be permanently removed from the system. 
+                                This action cannot be reversed.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Confirmation Form -->
+            <form method="post" class="space-y-4">
+                {% csrf_token %}
+                
+                <div>
+                    <label for="confirm_name" class="block text-sm font-medium text-gray-700">
+                        Type "{{ rank.name }}" to confirm deletion:
+                    </label>
+                    <input type="text" 
+                           name="confirm_name" 
+                           id="confirm_name" 
+                           required
+                           class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                           placeholder="{{ rank.name }}">
+                </div>
+
+                <!-- Form Actions -->
+                <div class="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+                    <a href="{% url 'raiders:rank-detail' rank.pk %}" 
+                       class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                        Cancel
+                    </a>
+                    <button type="submit" 
+                            id="delete-button"
+                            disabled
+                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                        </svg>
+                        Delete Rank
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Enable delete button only when confirmation text matches
+document.addEventListener('DOMContentLoaded', function() {
+    const confirmInput = document.getElementById('confirm_name');
+    const deleteButton = document.getElementById('delete-button');
+    const expectedName = '{{ rank.name }}';
+    
+    confirmInput.addEventListener('input', function() {
+        if (this.value === expectedName) {
+            deleteButton.disabled = false;
+        } else {
+            deleteButton.disabled = true;
+        }
+    });
+});
+</script>
+{% endblock %}

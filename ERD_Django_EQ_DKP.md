@@ -499,11 +499,11 @@ class RaidAttendance(models.Model):
 ```
 
 ### 8. Items Model
-**Purpose**: Store information about items (no fixed costs - all awarded via bidding)
+**Purpose**: Store information about items for loot distribution tracking
 
 ```python
 class Item(models.Model):
-    """Items available for bidding"""
+    """Items for loot distribution tracking"""
     
     name = models.CharField(
         max_length=200,
@@ -523,195 +523,17 @@ class Item(models.Model):
         return self.name
 ```
 
-### 9. Item Bids Model
-**Purpose**: Track bidding sessions and bid history for items
-
-```python
-class ItemBid(models.Model):
-    """Bidding sessions for items"""
-    
-    raid = models.ForeignKey(
-        Raid, 
-        on_delete=models.RESTRICT,
-        related_name='item_bids'
-    )
-    item = models.ForeignKey(
-        Item, 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        blank=True,
-        related_name='bids'
-    )
-    item_name = models.CharField(
-        max_length=200,
-        validators=[MinLengthValidator(2)],
-        help_text="Snapshot in case item not in database"
-    )
-    bid_session_id = models.CharField(
-        max_length=100, 
-        unique=True,
-        validators=[MinLengthValidator(10)],
-        help_text="Discord bot generated session ID"
-    )
-    
-    # Bidding session info
-    started_at = models.DateTimeField(auto_now_add=True)
-    closed_at = models.DateTimeField(null=True, blank=True)
-    is_active = models.BooleanField(default=True)
-    
-    # Winner information (Discord user focused, no hard character link)
-    winning_user = models.ForeignKey(
-        User, 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        blank=True,
-        related_name='won_bids'
-    )
-    winning_character_name = models.CharField(
-        max_length=50, 
-        blank=True,
-        help_text="Character name snapshot, no FK constraint"
-    )
-    winning_character_class = models.CharField(
-        max_length=50, 
-        blank=True,
-        help_text="Character class for reference"
-    )
-    winning_bid_amount = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2, 
-        null=True, 
-        blank=True,
-        validators=[models.MinValueValidator(0)]
-    )
-    
-    # Session metadata
-    created_by_bot = models.BooleanField(default=True)
-    notes = models.TextField(blank=True)
-    
-    class Meta:
-        db_table = 'item_bids'
-        indexes = [
-            models.Index(fields=['raid']),
-            models.Index(fields=['item']),
-            models.Index(fields=['bid_session_id']),
-            models.Index(fields=['is_active']),
-            models.Index(fields=['winning_user']),
-            models.Index(fields=['started_at']),
-            models.Index(fields=['closed_at']),
-        ]
-        constraints = [
-            models.CheckConstraint(
-                check=models.Q(
-                    is_active=True
-                ) | models.Q(
-                    is_active=False,
-                    winning_user__isnull=False,
-                    winning_bid_amount__isnull=False
-                ),
-                name='item_bids_closed_has_winner'
-            ),
-        ]
-
-    def __str__(self):
-        return f"{self.item_name} - {self.bid_session_id}"
-```
-
-### 10. Bid History Model
-**Purpose**: Track individual bids placed by Discord users (no hard character links)
-
-```python
-class BidHistory(models.Model):
-    """Individual bids placed by users"""
-    
-    bid_session = models.ForeignKey(
-        ItemBid, 
-        on_delete=models.CASCADE,
-        to_field='bid_session_id',
-        related_name='bid_history'
-    )
-    user = models.ForeignKey(
-        User, 
-        on_delete=models.CASCADE,
-        related_name='bid_history',
-        help_text="Discord user placing bid"
-    )
-    
-    # Character reference data (snapshot, no foreign key constraint)
-    character_name = models.CharField(
-        max_length=50, 
-        blank=True,
-        help_text="Character name used for bid"
-    )
-    character_class = models.CharField(
-        max_length=50, 
-        blank=True,
-        help_text="Character class for reference"
-    )
-    
-    # Bid details
-    bid_amount = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2,
-        validators=[models.MinValueValidator(0.01)]
-    )
-    user_balance_at_bid = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2,
-        validators=[models.MinValueValidator(0)],
-        help_text="User's balance when bid was placed"
-    )
-    is_valid = models.BooleanField(
-        default=True,
-        help_text="False if bid exceeded balance"
-    )
-    placed_at = models.DateTimeField(auto_now_add=True)
-    discord_message_id = models.CharField(
-        max_length=50, 
-        blank=True,
-        help_text="Reference to Discord message"
-    )
-    
-    class Meta:
-        db_table = 'bid_history'
-        indexes = [
-            models.Index(fields=['bid_session']),
-            models.Index(fields=['user']),
-            models.Index(fields=['character_name']),
-            models.Index(fields=['bid_amount']),
-            models.Index(fields=['placed_at']),
-            models.Index(fields=['is_valid']),
-        ]
-        constraints = [
-            models.CheckConstraint(
-                check=models.Q(is_valid=False) | models.Q(bid_amount__lte=models.F('user_balance_at_bid')),
-                name='bid_history_valid_amount'
-            ),
-        ]
-
-    def __str__(self):
-        return f"{self.user.discord_username} - {self.bid_amount}"
-```
-
-### 11. Loot Distribution Model
-**Purpose**: Track final item awards from bidding results (Discord user focused, no hard character links)
+### 9. Loot Distribution Model
+**Purpose**: Track final item awards to characters (Discord user focused, no hard character links)
 
 ```python
 class LootDistribution(models.Model):
-    """Final item awards from bidding results"""
+    """Final item awards to characters"""
     
     raid = models.ForeignKey(
         Raid, 
         on_delete=models.RESTRICT,
         related_name='loot_distribution'
-    )
-    bid_session = models.ForeignKey(
-        ItemBid, 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        blank=True,
-        to_field='bid_session_id',
-        related_name='loot_awards'
     )
     user = models.ForeignKey(
         User, 
@@ -736,7 +558,7 @@ class LootDistribution(models.Model):
     item_name = models.CharField(
         max_length=200,
         validators=[MinLengthValidator(2)],
-        help_text="Item name from bid results"
+        help_text="Item name"
     )
     character_name = models.CharField(
         max_length=50,
@@ -752,7 +574,7 @@ class LootDistribution(models.Model):
         max_digits=10, 
         decimal_places=2,
         validators=[models.MinValueValidator(0)],
-        help_text="Winning bid amount"
+        help_text="Points spent for item"
     )
     
     # Source tracking
@@ -772,7 +594,6 @@ class LootDistribution(models.Model):
         db_table = 'loot_distribution'
         indexes = [
             models.Index(fields=['raid']),
-            models.Index(fields=['bid_session']),
             models.Index(fields=['user']),
             models.Index(fields=['item']),
             models.Index(fields=['dkp_pool']),
@@ -788,7 +609,7 @@ class LootDistribution(models.Model):
         return f"{self.item_name} -> {self.character_name}"
 ```
 
-### 12. Point Adjustments Model
+### 10. Point Adjustments Model
 **Purpose**: Track manual point adjustments to Discord user accounts (no hard character links)
 
 ```python
@@ -866,7 +687,7 @@ class PointAdjustment(models.Model):
         return f"{self.user.discord_username}: {self.points_change} ({self.reason})"
 ```
 
-### 13. User Points Summary Model
+### 11. User Points Summary Model
 **Purpose**: Materialized view/table for efficient user point balance queries
 
 ```python
@@ -953,7 +774,7 @@ class UserPointsSummary(models.Model):
         self.save()
 ```
 
-### 14. Character Ownership History Model
+### 12. Character Ownership History Model
 **Purpose**: Track character reassignments between Discord users
 
 ```python
@@ -1010,7 +831,7 @@ class CharacterOwnershipHistory(models.Model):
 ```
 
 
-### 15. Discord Sync Log Model
+### 13. Discord Sync Log Model
 **Purpose**: Track Discord role synchronization attempts and results
 
 ```python
@@ -1056,7 +877,7 @@ class DiscordSyncLog(models.Model):
         return f"{self.action} - {self.status} ({self.created_at})"
 ```
 
-### 16. Guild Applications Model
+### 14. Guild Applications Model
 **Purpose**: Store recruitment applications from prospective members
 
 ```python
@@ -1136,7 +957,7 @@ class GuildApplication(models.Model):
         return f"{self.character_name} ({self.status})"
 ```
 
-### 17. Application Votes Model
+### 15. Application Votes Model
 **Purpose**: Track all member votes on guild applications (accept all, count only ≥15% attendance)
 
 ```python
@@ -1194,7 +1015,7 @@ class ApplicationVote(models.Model):
         return f"{self.user.discord_username} - {self.vote} ({self.attendance_percentage}%)"
 ```
 
-### 18. Application Comments Model
+### 16. Application Comments Model
 **Purpose**: Store review comments and feedback on applications
 
 ```python
@@ -1235,7 +1056,7 @@ class ApplicationComment(models.Model):
         return f"Comment on {self.application.character_name} by {self.user.discord_username if self.user else 'Anonymous'}"
 ```
 
-### 19. Member Attendance Summary Model
+### 17. Member Attendance Summary Model
 **Purpose**: Track 30/60/90 day and lifetime rolling attendance percentages for voting eligibility and member performance
 
 ```python
@@ -1675,13 +1496,9 @@ class CharacterViewSet(viewsets.ModelViewSet):
 6. **Character ownership can be transferred without affecting point balances**
 7. Points earned/spent must be non-negative (validators)
 8. Only active characters can participate in raids (business logic)
-9. **Items have no fixed costs** - all distribution via bidding
-10. **Bids cannot exceed user's current DKP balance** (validation in views)
-11. **Bidding sessions must be associated with active raids**
-12. **Only one active bid session per item per raid** (business logic)
-13. **Bid amounts must be positive (greater than 0)** (validators)
-14. **Loot distribution requires completed bidding session**
-15. **Characters do not have ranks, groups, or roles - only Discord users have role assignments**
+9. **Items are distributed based on guild loot rules (no bidding system)**
+10. **Loot distribution records item awards and point deductions**
+11. **Characters do not have ranks, groups, or roles - only Discord users have role assignments**
 
 ### Authentication Rules:
 1. **Django social auth for Discord OAuth** - primary authentication method

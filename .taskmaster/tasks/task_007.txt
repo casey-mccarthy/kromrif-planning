@@ -1,0 +1,49 @@
+# Task ID: 7
+# Title: Multi-Period Attendance Tracking System
+# Status: pending
+# Dependencies: 6
+# Priority: medium
+# Description: Implement 30/60/90 day rolling averages and lifetime attendance statistics
+# Details:
+Create MemberAttendanceSummary model with 30/60/90 day percentages and lifetime stats. Implement Django management command for daily attendance calculations. Create DRF API endpoints for attendance queries and leaderboards. Set up efficient database queries with proper indexing. Implement attendance-based voting eligibility (≥15% in 30 days).
+
+# Test Strategy:
+Test attendance calculations are accurate across all time periods and voting eligibility correctly identifies qualified members
+
+# Subtasks:
+## 1. Design MemberAttendanceSummary model [pending]
+### Dependencies: None
+### Description: Create Django model to store aggregated attendance data with fields for member, date, rolling averages, and voting eligibility status
+### Details:
+Define model fields including member foreign key, summary_date, attendance_rate_7d, attendance_rate_30d, attendance_rate_90d, is_voting_eligible, last_updated timestamp. Include proper indexing and constraints.
+
+## 2. Implement rolling average calculation algorithms [pending]
+### Dependencies: 7.1
+### Description: Create efficient algorithms to calculate 7-day, 30-day, and 90-day rolling attendance averages with proper handling of edge cases
+### Details:
+Implement functions for calculating weighted and unweighted rolling averages, handle missing data points, optimize for performance with large datasets, and ensure accuracy across different time periods.
+
+## 3. Create Django management command for daily calculations [pending]
+### Dependencies: 7.1, 7.2
+### Description: Build management command that runs daily to update all member attendance summaries using the rolling average algorithms
+### Details:
+Create management/commands/update_attendance_summaries.py that processes all active members, calculates updated rolling averages, and updates MemberAttendanceSummary records. Include logging and error handling.
+
+## 4. Optimize database with proper indexing [pending]
+### Dependencies: 7.1
+### Description: Add database indexes and optimize queries for efficient attendance data retrieval and summary calculations
+### Details:
+Create composite indexes on (member, summary_date), (summary_date), and (is_voting_eligible). Optimize queries for bulk operations and ensure efficient data retrieval for API endpoints.
+
+## 5. Build DRF API endpoints for queries and leaderboards [pending]
+### Dependencies: 7.1, 7.4
+### Description: Create REST API endpoints for retrieving attendance summaries, member statistics, and leaderboard data
+### Details:
+Implement ViewSets and serializers for MemberAttendanceSummary, create endpoints for individual member stats, attendance leaderboards, and filtered queries. Include pagination and proper permission controls.
+
+## 6. Implement voting eligibility logic [pending]
+### Dependencies: 7.1, 7.2
+### Description: Create business logic to determine member voting eligibility based on attendance thresholds and update eligibility status
+### Details:
+Define voting eligibility criteria based on rolling attendance averages, implement logic to automatically update is_voting_eligible field, and create functions to check eligibility for specific dates or periods.
+

@@ -1,0 +1,187 @@
+{% comment %}
+Reusable Form Field Component
+
+Usage:
+{% include 'components/form_field.html' with field=form.name field_type='text' field_required=true %}
+
+Parameters:
+- field: Django form field (required)
+- field_type: 'text', 'email', 'password', 'textarea', 'select', 'checkbox', 'radio', 'file', 'color' (optional)
+- field_required: Boolean (optional, overrides field.required)
+- field_help_text: Custom help text (optional, overrides field.help_text)
+- field_placeholder: Custom placeholder (optional)
+- field_label: Custom label (optional, overrides field.label)
+- field_size: 'sm', 'md', 'lg' (default: 'md')
+- field_full_width: Boolean (default: true)
+- field_disabled: Boolean (default: false)
+- field_readonly: Boolean (default: false)
+- field_additional_classes: Additional CSS classes for the input (optional)
+- field_wrapper_classes: Additional CSS classes for the wrapper (optional)
+{% endcomment %}
+
+{% with field_size|default:'md' as size %}
+{% with field_full_width|default:true as full_width %}
+{% with field_required|default:field.field.required as required %}
+{% with field_label|default:field.label as label %}
+{% with field_help_text|default:field.help_text as help_text %}
+{% with field_disabled|default:false as disabled %}
+{% with field_readonly|default:false as readonly %}
+
+<div class="{% if field_wrapper_classes %}{{ field_wrapper_classes }}{% endif %}">
+    {% if label and field_type != 'checkbox' %}
+        <label for="{{ field.id_for_label }}" 
+               class="block text-sm font-medium text-gray-700 
+                      {% if size == 'sm' %}mb-1
+                      {% elif size == 'lg' %}mb-2
+                      {% else %}mb-1
+                      {% endif %}">
+            {{ label }}
+            {% if required %}
+                <span class="text-red-500">*</span>
+            {% endif %}
+        </label>
+    {% endif %}
+
+    <div class="{% if size == 'sm' %}mt-1 {% elif size == 'lg' %}mt-2 {% else %}mt-1 {% endif %}">
+        {% if field_type == 'textarea' %}
+            <textarea name="{{ field.name }}" 
+                      id="{{ field.id_for_label }}"
+                      {% if field_placeholder %}placeholder="{{ field_placeholder }}"{% endif %}
+                      {% if required %}required{% endif %}
+                      {% if disabled %}disabled{% endif %}
+                      {% if readonly %}readonly{% endif %}
+                      class="{% if full_width %}block w-full {% endif %}
+                             {% if size == 'sm' %}px-3 py-2 text-sm
+                             {% elif size == 'lg' %}px-4 py-3 text-base
+                             {% else %}px-3 py-2 text-sm
+                             {% endif %}
+                             border border-gray-300 rounded-md shadow-sm 
+                             focus:outline-none focus:ring-indigo-500 focus:border-indigo-500
+                             {% if field.errors %}border-red-300 focus:ring-red-500 focus:border-red-500{% endif %}
+                             {% if disabled %}bg-gray-50 cursor-not-allowed{% endif %}
+                             {% if readonly %}bg-gray-50{% endif %}
+                             {% if field_additional_classes %}{{ field_additional_classes }}{% endif %}"
+                      rows="4">{{ field.value|default_if_none:'' }}</textarea>
+
+        {% elif field_type == 'select' %}
+            <select name="{{ field.name }}" 
+                    id="{{ field.id_for_label }}"
+                    {% if required %}required{% endif %}
+                    {% if disabled %}disabled{% endif %}
+                    class="{% if full_width %}block w-full {% endif %}
+                           {% if size == 'sm' %}px-3 py-2 text-sm
+                           {% elif size == 'lg' %}px-4 py-3 text-base
+                           {% else %}px-3 py-2 text-sm
+                           {% endif %}
+                           border border-gray-300 rounded-md shadow-sm 
+                           focus:outline-none focus:ring-indigo-500 focus:border-indigo-500
+                           {% if field.errors %}border-red-300 focus:ring-red-500 focus:border-red-500{% endif %}
+                           {% if disabled %}bg-gray-50 cursor-not-allowed{% endif %}
+                           {% if field_additional_classes %}{{ field_additional_classes }}{% endif %}">
+                {% for value, text in field.field.choices %}
+                    <option value="{{ value }}" {% if field.value == value %}selected{% endif %}>
+                        {{ text }}
+                    </option>
+                {% endfor %}
+            </select>
+
+        {% elif field_type == 'checkbox' %}
+            <div class="flex items-center">
+                <input type="checkbox" 
+                       name="{{ field.name }}" 
+                       id="{{ field.id_for_label }}"
+                       value="1"
+                       {% if field.value %}checked{% endif %}
+                       {% if disabled %}disabled{% endif %}
+                       class="h-4 w-4 text-indigo-600 border-gray-300 rounded 
+                              focus:ring-indigo-500
+                              {% if field.errors %}border-red-300{% endif %}
+                              {% if disabled %}cursor-not-allowed{% endif %}
+                              {% if field_additional_classes %}{{ field_additional_classes }}{% endif %}">
+                {% if label %}
+                    <label for="{{ field.id_for_label }}" 
+                           class="ml-2 block text-sm text-gray-900">
+                        {{ label }}
+                        {% if required %}
+                            <span class="text-red-500">*</span>
+                        {% endif %}
+                    </label>
+                {% endif %}
+            </div>
+
+        {% elif field_type == 'file' %}
+            <input type="file" 
+                   name="{{ field.name }}" 
+                   id="{{ field.id_for_label }}"
+                   {% if required %}required{% endif %}
+                   {% if disabled %}disabled{% endif %}
+                   class="{% if full_width %}block w-full {% endif %}
+                          {% if size == 'sm' %}text-sm
+                          {% elif size == 'lg' %}text-base
+                          {% else %}text-sm
+                          {% endif %}
+                          text-gray-500 border border-gray-300 rounded-md
+                          file:mr-4 file:py-2 file:px-4 file:rounded-l-md file:border-0
+                          file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700
+                          hover:file:bg-indigo-100
+                          {% if field.errors %}border-red-300{% endif %}
+                          {% if disabled %}cursor-not-allowed{% endif %}
+                          {% if field_additional_classes %}{{ field_additional_classes }}{% endif %}">
+
+        {% elif field_type == 'color' %}
+            <input type="color" 
+                   name="{{ field.name }}" 
+                   id="{{ field.id_for_label }}"
+                   value="{{ field.value|default:'#6366f1' }}"
+                   {% if required %}required{% endif %}
+                   {% if disabled %}disabled{% endif %}
+                   {% if readonly %}readonly{% endif %}
+                   class="h-10 w-20 border border-gray-300 rounded-md shadow-sm 
+                          focus:outline-none focus:ring-indigo-500 focus:border-indigo-500
+                          {% if field.errors %}border-red-300 focus:ring-red-500 focus:border-red-500{% endif %}
+                          {% if disabled %}cursor-not-allowed{% endif %}
+                          {% if field_additional_classes %}{{ field_additional_classes }}{% endif %}">
+
+        {% else %}
+            <input type="{{ field_type|default:'text' }}" 
+                   name="{{ field.name }}" 
+                   id="{{ field.id_for_label }}"
+                   value="{{ field.value|default_if_none:'' }}"
+                   {% if field_placeholder %}placeholder="{{ field_placeholder }}"{% endif %}
+                   {% if required %}required{% endif %}
+                   {% if disabled %}disabled{% endif %}
+                   {% if readonly %}readonly{% endif %}
+                   class="{% if full_width %}block w-full {% endif %}
+                          {% if size == 'sm' %}px-3 py-2 text-sm
+                          {% elif size == 'lg' %}px-4 py-3 text-base
+                          {% else %}px-3 py-2 text-sm
+                          {% endif %}
+                          border border-gray-300 rounded-md shadow-sm 
+                          focus:outline-none focus:ring-indigo-500 focus:border-indigo-500
+                          {% if field.errors %}border-red-300 focus:ring-red-500 focus:border-red-500{% endif %}
+                          {% if disabled %}bg-gray-50 cursor-not-allowed{% endif %}
+                          {% if readonly %}bg-gray-50{% endif %}
+                          {% if field_additional_classes %}{{ field_additional_classes }}{% endif %}">
+        {% endif %}
+    </div>
+
+    {% if field.errors %}
+        <div class="mt-2">
+            {% for error in field.errors %}
+                <p class="text-sm text-red-600">{{ error }}</p>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    {% if help_text %}
+        <p class="mt-2 text-sm text-gray-500">{{ help_text }}</p>
+    {% endif %}
+</div>
+
+{% endwith %} {# readonly #}
+{% endwith %} {# disabled #}
+{% endwith %} {# help_text #}
+{% endwith %} {# label #}
+{% endwith %} {# required #}
+{% endwith %} {# full_width #}
+{% endwith %} {# size #}

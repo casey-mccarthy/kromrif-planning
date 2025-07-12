@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+    {% if object %}Edit {{ object.name }}{% else %}New Character{% endif %} - Characters - {{ block.super }}
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+        <nav class="flex mb-4" aria-label="Breadcrumb">
+            <ol class="inline-flex items-center space-x-1 md:space-x-3">
+                <li class="inline-flex items-center">
+                    <a href="{% url 'raiders:character-list' %}" class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-indigo-600">
+                        Characters
+                    </a>
+                </li>
+                {% if object %}
+                    <li>
+                        <div class="flex items-center">
+                            <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 111.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                            </svg>
+                            <a href="{% url 'raiders:character-detail' object.pk %}" class="ml-1 text-sm font-medium text-gray-700 hover:text-indigo-600">
+                                {{ object.name }}
+                            </a>
+                        </div>
+                    </li>
+                {% endif %}
+                <li>
+                    <div class="flex items-center">
+                        <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 111.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span class="ml-1 text-sm font-medium text-gray-500">
+                            {% if object %}Edit{% else %}New{% endif %}
+                        </span>
+                    </div>
+                </li>
+            </ol>
+        </nav>
+        
+        <div class="flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900">
+                    {% if object %}Edit {{ object.name }}{% else %}Create New Character{% endif %}
+                </h1>
+                <p class="mt-2 text-sm text-gray-600">
+                    {% if object %}Update character information{% else %}Add a new character to the guild{% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Form -->
+    <div class="bg-white shadow rounded-lg">
+        <form method="post" class="space-y-6">
+            {% csrf_token %}
+            
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-medium text-gray-900">Character Information</h2>
+            </div>
+            
+            <div class="px-6 py-4 space-y-6">
+                <!-- Basic Info -->
+                <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <div>
+                        <label for="{{ form.name.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                            Name <span class="text-red-500">*</span>
+                        </label>
+                        {{ form.name }}
+                        {% if form.name.errors %}
+                            <p class="mt-1 text-sm text-red-600">{{ form.name.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                    
+                    <div>
+                        <label for="{{ form.character_class.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                            Class <span class="text-red-500">*</span>
+                        </label>
+                        {{ form.character_class }}
+                        {% if form.character_class.errors %}
+                            <p class="mt-1 text-sm text-red-600">{{ form.character_class.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <div>
+                        <label for="{{ form.level.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                            Level <span class="text-red-500">*</span>
+                        </label>
+                        {{ form.level }}
+                        {% if form.level.errors %}
+                            <p class="mt-1 text-sm text-red-600">{{ form.level.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                    
+                    <div>
+                        <label for="{{ form.status.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                            Status <span class="text-red-500">*</span>
+                        </label>
+                        {{ form.status }}
+                        {% if form.status.errors %}
+                            <p class="mt-1 text-sm text-red-600">{{ form.status.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Character Relationship -->
+                <div>
+                    <label for="{{ form.main_character.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                        Main Character
+                    </label>
+                    {{ form.main_character }}
+                    {% if form.main_character.errors %}
+                        <p class="mt-1 text-sm text-red-600">{{ form.main_character.errors.0 }}</p>
+                    {% endif %}
+                    <p class="mt-1 text-sm text-gray-500">
+                        Leave blank if this is a main character
+                    </p>
+                </div>
+                
+                <!-- Description -->
+                <div>
+                    <label for="{{ form.description.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                        Description
+                    </label>
+                    {{ form.description }}
+                    {% if form.description.errors %}
+                        <p class="mt-1 text-sm text-red-600">{{ form.description.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Form Actions -->
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end space-x-3">
+                <a href="{% if object %}{% url 'raiders:character-detail' object.pk %}{% else %}{% url 'raiders:character-list' %}{% endif %}" 
+                   class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    Cancel
+                </a>
+                <button type="submit" 
+                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                    {% if object %}Update Character{% else %}Create Character{% endif %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

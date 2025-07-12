@@ -1,0 +1,37 @@
+# Task ID: 8
+# Title: Item and Loot Distribution API
+# Status: pending
+# Dependencies: 5
+# Priority: high
+# Description: Create item tracking and loot distribution system for Discord bot integration
+# Details:
+Create Item model with simple name field. Create LootDistribution model linking User, Item, Raid with point cost and character context. Implement DRF API endpoints for Discord bot: award item, check user balance, validate points. Set up automatic point deduction via Django signals. Create loot audit trail and distribution history endpoints.
+
+# Test Strategy:
+Test Discord bot API endpoints correctly process loot awards, deduct points, and maintain accurate audit trails
+
+# Subtasks:
+## 1. Create Item and LootDistribution models [pending]
+### Dependencies: None
+### Description: Design and implement Django models for loot items and distribution tracking with proper relationships to Character model
+### Details:
+Create Item model with fields for name, description, value, rarity. Create LootDistribution model with foreign keys to Character and Item, timestamp, quantity, and point cost fields. Include proper model validation and string representations.
+
+## 2. Build DRF API endpoints for Discord bot integration [pending]
+### Dependencies: 8.1
+### Description: Implement REST API endpoints using Django REST Framework for Discord bot to manage loot distribution
+### Details:
+Create serializers for Item and LootDistribution models. Implement viewsets with proper permissions and filtering. Add endpoints for listing available items, distributing loot to characters, and querying distribution history. Include API documentation.
+
+## 3. Implement automatic point deduction via Django signals [pending]
+### Dependencies: 8.1
+### Description: Set up Django signals to automatically deduct points from character accounts when loot is distributed
+### Details:
+Create post_save signal handler for LootDistribution model. Implement atomic transaction logic to ensure point deduction and loot distribution occur together or not at all. Add validation to prevent negative point balances and handle edge cases.
+
+## 4. Build loot audit trail and distribution history tracking [pending]
+### Dependencies: 8.2, 8.3
+### Description: Implement comprehensive audit logging and history views for loot distribution tracking
+### Details:
+Create audit model to track all loot-related actions with timestamps, user info, and change details. Build admin interface views for reviewing distribution history. Add filtering and search capabilities for audit records. Include export functionality for historical data.
+

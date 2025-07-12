@@ -1,216 +1,193 @@
-# EQ DKP System - Planning Repository
+# Kromrif Planning
 
-This repository contains the planning documentation and Entity Relationship Diagrams (ERDs) for an EverQuest Dragon Kill Points (DKP) system. The system is designed to support both Django and FastAPI implementations with Discord integration for user authentication and role management.
+Django-based DKP (Dragon Kill Points) management system for EverQuest guilds with Discord OAuth integration.
 
-## Overview
+[![Built with Cookiecutter Django](https://img.shields.io/badge/built%20with-Cookiecutter%20Django-ff69b4.svg?logo=cookiecutter)](https://github.com/cookiecutter/cookiecutter-django/)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
-The EQ DKP system is a guild management tool that tracks member participation in raids, manages point-based loot distribution, and handles recruitment applications. The system is built around Discord users rather than game characters to support character transfers and maintain point continuity.
+License: MIT
 
-## Key Features
+## 🚨 SECURITY NOTICE
 
-- **Discord OAuth Integration**: Primary authentication method using Discord accounts
-- **User-Centric Design**: Points and roles assigned to Discord users, not characters
-- **Dynamic Loot Pricing**: All items distributed via bidding system (no fixed costs)
-- **Comprehensive Attendance Tracking**: 30/60/90 day and lifetime attendance metrics
-- **Recruitment Management**: Application workflow with member voting system
-- **Character Transfer Support**: Character ownership can change without affecting user points
+**This application handles user authentication and role-based permissions.** 
 
-## Architecture Diagrams
+**📚 Before setup, read the [Security Setup Guide](SECURITY_SETUP.md) completely.**
 
-### FastAPI Implementation Flow
+Critical requirements:
+- ✅ Configure environment variables from templates (never commit secrets)
+- ✅ Use separate Discord OAuth apps for development and production
+- ✅ Follow role-based permission guidelines
+- ✅ Use secure passwords and secret keys
 
-```mermaid
-graph TB
-    subgraph "Authentication Layer"
-        A[Discord OAuth] --> B[User Model]
-        B --> C[API Keys]
-        C --> D[JWT/Token Auth]
-    end
-    
-    subgraph "Core Models"
-        B --> E[Characters]
-        B --> F[User Points Summary]
-        E --> G[Character Ownership History]
-    end
-    
-    subgraph "DKP System"
-        H[DKP Pools] --> I[Events]
-        I --> J[Raids]
-        J --> K[Raid Attendance]
-        K --> F
-        J --> L[Item Bids]
-        L --> M[Bid History]
-        L --> N[Loot Distribution]
-        N --> F
-        O[Point Adjustments] --> F
-    end
-    
-    subgraph "Recruitment System"
-        P[Guild Applications] --> Q[Application Votes]
-        P --> R[Application Comments]
-        S[Member Attendance Summary] --> Q
-    end
-    
-    subgraph "Discord Integration"
-        B --> T[Discord Sync Log]
-        U[Discord Bot] --> J
-        U --> L
-        U --> P
-    end
-    
-    subgraph "API Layer"
-        V[FastAPI Routes] --> W[SQLAlchemy ORM]
-        W --> X[PostgreSQL Database]
-        V --> Y[Pydantic Models]
-    end
-    
-    subgraph "Infrastructure"
-        Z[Alembic Migrations] --> X
-        AA[Redis Cache] --> V
-        BB[Background Tasks] --> S
-    end
-    
-    B -.-> E
-    B -.-> K
-    B -.-> N
-    B -.-> O
-    B -.-> Q
-    E -.-> K
-    E -.-> N
+## 🚀 Quick Start
+
+### Development Setup
+
+1. **Configure environment variables:**
+   ```bash
+   cp envs-examples/local/django .envs/.local/.django
+   # Edit .envs/.local/.django with your values (see SECURITY_SETUP.md)
+   ```
+
+2. **Start Docker development environment:**
+   ```bash
+   docker-compose -f docker-compose.local.yml up --build
+   ```
+
+3. **Access the application:**
+   - **Django Admin:** http://localhost:8000/admin
+   - **Main Site:** http://localhost:8000/
+   - **Login:** Use credentials from your environment variables
+
+### Virtual Environment Setup (Alternative)
+
+1. **Install dependencies:**
+   ```bash
+   pip install -r requirements/local.txt
+   ```
+
+2. **Configure environment:**
+   ```bash
+   export DJANGO_SECRET_KEY="your_secret_key_here"
+   export DJANGO_ADMIN_USERNAME="admin"
+   export DJANGO_ADMIN_PASSWORD="secure_password"
+   export DJANGO_ADMIN_EMAIL="admin@example.local"
+   export DISCORD_CLIENT_ID="your_discord_client_id"
+   export DISCORD_CLIENT_SECRET="your_discord_client_secret"
+   ```
+
+3. **Run migrations and create admin user:**
+   ```bash
+   python manage.py migrate
+   python manage.py create_default_admin
+   python manage.py runserver
+   ```
+
+## 🏗️ Architecture
+
+### User Management & Discord Integration
+- **Extended User Model** with Discord OAuth data synchronization
+- **Role-based hierarchy:** Developer > Officer > Recruiter > Member > Applicant > Guest
+- **Automatic Django Groups** integration with role assignments
+- **Signal-based Discord data sync** via django-allauth
+
+### Key Features
+- Discord OAuth authentication
+- Role-based permission system  
+- Admin interface with bulk role management
+- Automatic admin user creation (development only)
+- Comprehensive audit logging
+
+## Settings
+
+Moved to [settings](https://cookiecutter-django.readthedocs.io/en/latest/1-getting-started/settings.html).
+
+## Basic Commands
+
+### Setting Up Your Users
+
+#### Development (Automatic)
+- Admin user is created automatically via environment variables
+- Regular users sign up via Discord OAuth integration
+
+#### Production (Manual)
+- Create superuser manually: `python manage.py createsuperuser`  
+- Users authenticate via Discord OAuth
+
+### Discord OAuth Setup
+
+1. **Create Discord Application:**
+   - Go to [Discord Developer Portal](https://discord.com/developers/applications)
+   - Create new application
+   - Go to OAuth2 section
+
+2. **Configure Redirect URIs:**
+   - Development: `http://localhost:8000/accounts/discord/login/callback/`
+   - Production: `https://yourdomain.com/accounts/discord/login/callback/`
+
+3. **Add credentials to environment variables**
+
+### Type checks
+
+Running type checks with mypy:
+
+    $ mypy kromrif_planning
+
+### Test coverage
+
+To run the tests, check your test coverage, and generate an HTML coverage report:
+
+    $ coverage run -m pytest
+    $ coverage html
+    $ open htmlcov/index.html
+
+#### Running tests with pytest
+
+    $ pytest
+
+### Live reloading and Sass CSS compilation
+
+Moved to [Live reloading and SASS compilation](https://cookiecutter-django.readthedocs.io/en/latest/2-local-development/developing-locally.html#using-webpack-or-gulp).
+
+## 🔐 Security Features
+
+### Environment Variable Protection
+- All secrets stored in environment variables
+- Separate configuration for development and production
+- No hardcoded credentials in codebase
+
+### Role-Based Access Control
+- Hierarchical permission system
+- Bulk role assignment with permission validation
+- Protection against privilege escalation
+
+### Admin Security
+- Development admin auto-creation (DEBUG mode only)
+- Production requires manual superuser creation
+- Secure admin URL configuration for production
+
+## 🐳 Deployment
+
+### Docker Development
+```bash
+docker-compose -f docker-compose.local.yml up --build
 ```
 
-### Django Implementation Flow
+### Docker Production
+```bash
+# Configure production environment first
+cp envs-examples/production/django .env.production
+# Edit .env.production with your values
 
-```mermaid
-graph TB
-    subgraph "Authentication Layer"
-        A[Discord OAuth via Allauth] --> B[Extended User Model]
-        B --> C[DRF Token Auth]
-        C --> D[API Keys]
-    end
-    
-    subgraph "Core Models"
-        B --> E[Characters]
-        B --> F[User Points Summary]
-        E --> G[Character Ownership History]
-    end
-    
-    subgraph "DKP System"
-        H[DKP Pools] --> I[Events]
-        I --> J[Raids]
-        J --> K[Raid Attendance]
-        K --> F
-        J --> L[Item Bids]
-        L --> M[Bid History]
-        L --> N[Loot Distribution]
-        N --> F
-        O[Point Adjustments] --> F
-    end
-    
-    subgraph "Recruitment System"
-        P[Guild Applications] --> Q[Application Votes]
-        P --> R[Application Comments]
-        S[Member Attendance Summary] --> Q
-    end
-    
-    subgraph "Discord Integration"
-        B --> T[Discord Sync Log]
-        U[Discord Bot] --> J
-        U --> L
-        U --> P
-    end
-    
-    subgraph "Django Framework"
-        V[Django Views/ViewSets] --> W[Django ORM]
-        W --> X[PostgreSQL Database]
-        V --> Y[DRF Serializers]
-        Z[Django Admin] --> W
-    end
-    
-    subgraph "Infrastructure"
-        AA[Django Migrations] --> X
-        BB[Django Cache] --> V
-        CC[Celery Tasks] --> S
-        DD[Allauth Social Accounts] --> A
-    end
-    
-    B -.-> E
-    B -.-> K
-    B -.-> N
-    B -.-> O
-    B -.-> Q
-    E -.-> K
-    E -.-> N
+# Deploy
+docker-compose -f docker-compose.production.yml up -d
+docker-compose -f docker-compose.production.yml exec django python manage.py createsuperuser
 ```
 
-## Implementation Details
+See detailed [cookiecutter-django Docker documentation](https://cookiecutter-django.readthedocs.io/en/latest/3-deployment/deployment-with-docker.html).
 
-### Discord User-Centric Design
+## 📝 Required Environment Variables
 
-Both implementations follow a **Discord user-centric** approach where:
+### Development (.envs/.local/.django)
+- `DJANGO_SECRET_KEY` - Secure random key
+- `DJANGO_ADMIN_USERNAME` - Admin username  
+- `DJANGO_ADMIN_PASSWORD` - Admin password (8+ chars)
+- `DJANGO_ADMIN_EMAIL` - Admin email
+- `DISCORD_CLIENT_ID` - Discord OAuth client ID
+- `DISCORD_CLIENT_SECRET` - Discord OAuth secret
 
-- **Points belong to Discord users**, not characters
-- **Character names in transaction tables are snapshots** (no foreign key constraints)
-- **Character ownership can be transferred** without affecting point balances
-- **Roles and permissions are assigned to Discord users** through the `role_group` field
+### Production (see envs-examples/production/django)
+- All development variables except admin credentials
+- Additional production-specific security settings
+- SSL/HTTPS configuration
+- Database and email service credentials
 
-### Key Design Decisions
+## 🆘 Security Issues
 
-1. **No Character Ranks**: Characters do not have ranks, groups, or roles - only Discord users have role assignments
-2. **Dynamic Item Pricing**: All items are distributed via bidding with no fixed costs
-3. **Attendance-Based Voting**: Only members with ≥15% 30-day attendance can vote on applications
-4. **Comprehensive Audit Trail**: All transactions maintain character name snapshots for historical reference
+For security vulnerabilities or questions:
+1. Review [SECURITY_SETUP.md](SECURITY_SETUP.md)
+2. Check environment variable configuration
+3. Verify Discord OAuth setup
+4. Ensure production vs development separation
 
-### Database Schema Highlights
-
-- **User Model**: Extended with Discord integration fields and role management
-- **Character Model**: Simplified to focus on character data without rank complexity
-- **Points System**: Materialized views for efficient balance calculations
-- **Bidding System**: Real-time validation against user DKP balances
-- **Recruitment System**: Multi-stage workflow with attendance-based voting eligibility
-
-## File Structure
-
-```
-├── README.md                      # This file
-├── ERD_FastAPI_EQ_DKP.md         # FastAPI implementation ERD
-├── ERD_Django_EQ_DKP.md          # Django implementation ERD
-├── PRD_FastAPI_EQ_DKP.md         # FastAPI Product Requirements
-├── PRD_Django_EQ_DKP.md          # Django Product Requirements
-└── CLAUDE.md                     # Development context and workflow
-```
-
-## Development Workflow
-
-This repository uses Task Master AI for project planning and task management. The `.taskmaster/` directory contains configuration and task definitions for automated development workflows.
-
-### Getting Started
-
-1. Review the ERD documentation for your chosen implementation (Django or FastAPI)
-2. Set up Task Master AI following the instructions in `CLAUDE.md`
-3. Use the PRD files to generate implementation tasks
-4. Follow the database schema and business rules defined in the ERDs
-
-## Business Rules Summary
-
-### Core Principles
-- Discord OAuth as primary authentication
-- User-centric point and role management
-- Dynamic loot pricing through bidding
-- Character transfer support
-- Comprehensive attendance tracking
-- Automated Discord role synchronization
-
-### Security & Access Control
-- Role-based permissions (Officer, Recruiter, Developer, Member, Applicant, Guest)
-- API key management for programmatic access
-- Attendance-based voting eligibility
-- Secure Discord bot integration
-
-## Contributing
-
-This is a planning repository. Implementation will be done in separate repositories based on the chosen framework (Django or FastAPI).
-
-## License
-
-TBD - Guild-specific implementation
+**Security is not optional. Follow the security guide completely.**

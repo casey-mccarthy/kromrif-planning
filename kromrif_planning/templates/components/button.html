@@ -1,0 +1,137 @@
+{% comment %}
+Reusable Button Component
+
+Usage:
+{% include 'components/button.html' with btn_text='Save' btn_type='primary' btn_size='md' btn_icon='save' %}
+
+Parameters:
+- btn_text: Button text (required)
+- btn_type: 'primary', 'secondary', 'danger', 'success', 'warning' (default: 'primary')
+- btn_size: 'sm', 'md', 'lg' (default: 'md')
+- btn_icon: Icon name (optional) - 'save', 'edit', 'delete', 'add', 'view', 'search', 'cancel'
+- btn_icon_position: 'left', 'right' (default: 'left')
+- btn_disabled: Boolean (default: false)
+- btn_loading: Boolean (default: false)
+- btn_full_width: Boolean (default: false)
+- btn_href: URL for link button (optional)
+- btn_onclick: JavaScript onclick handler (optional)
+- btn_submit: Boolean, make it a submit button (default: false)
+- btn_id: Button ID (optional)
+- btn_class: Additional CSS classes (optional)
+{% endcomment %}
+
+{% with btn_type|default:'primary' as type %}
+{% with btn_size|default:'md' as size %}
+{% with btn_icon_position|default:'left' as icon_pos %}
+{% with btn_disabled|default:false as disabled %}
+{% with btn_loading|default:false as loading %}
+{% with btn_full_width|default:false as full_width %}
+{% with btn_submit|default:false as submit %}
+
+{% comment %} Base classes {% endcomment %}
+{% with 'inline-flex items-center justify-center border font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200' as base_classes %}
+
+{% comment %} Size classes {% endcomment %}
+{% if size == 'sm' %}
+    {% with 'px-3 py-2 text-sm' as size_classes %}
+{% elif size == 'lg' %}
+    {% with 'px-6 py-3 text-base' as size_classes %}
+{% else %}
+    {% with 'px-4 py-2 text-sm' as size_classes %}
+{% endif %}
+
+{% comment %} Type classes {% endcomment %}
+{% if type == 'primary' %}
+    {% with 'border-transparent text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500' as type_classes %}
+{% elif type == 'secondary' %}
+    {% with 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50 focus:ring-indigo-500' as type_classes %}
+{% elif type == 'danger' %}
+    {% with 'border-transparent text-white bg-red-600 hover:bg-red-700 focus:ring-red-500' as type_classes %}
+{% elif type == 'success' %}
+    {% with 'border-transparent text-white bg-green-600 hover:bg-green-700 focus:ring-green-500' as type_classes %}
+{% elif type == 'warning' %}
+    {% with 'border-transparent text-white bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-500' as type_classes %}
+{% else %}
+    {% with 'border-transparent text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500' as type_classes %}
+{% endif %}
+
+{% comment %} Disabled classes {% endcomment %}
+{% if disabled or loading %}
+    {% with 'disabled:opacity-50 disabled:cursor-not-allowed' as disabled_classes %}
+{% else %}
+    {% with '' as disabled_classes %}
+{% endif %}
+
+{% comment %} Full width classes {% endcomment %}
+{% if full_width %}
+    {% with 'w-full' as width_classes %}
+{% else %}
+    {% with '' as width_classes %}
+{% endif %}
+
+{% comment %} Icon SVG {% endcomment %}
+{% if btn_icon == 'save' %}
+    {% with '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>' as icon_svg %}
+{% elif btn_icon == 'edit' %}
+    {% with '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>' as icon_svg %}
+{% elif btn_icon == 'delete' %}
+    {% with '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>' as icon_svg %}
+{% elif btn_icon == 'add' %}
+    {% with '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>' as icon_svg %}
+{% elif btn_icon == 'view' %}
+    {% with '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>' as icon_svg %}
+{% elif btn_icon == 'search' %}
+    {% with '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>' as icon_svg %}
+{% elif btn_icon == 'cancel' %}
+    {% with '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>' as icon_svg %}
+{% else %}
+    {% with '' as icon_svg %}
+{% endif %}
+
+{% comment %} Render button {% endcomment %}
+{% if btn_href %}
+    <a href="{{ btn_href }}"
+       {% if btn_id %}id="{{ btn_id }}"{% endif %}
+       class="{{ base_classes }} {{ size_classes }} {{ type_classes }} {{ disabled_classes }} {{ width_classes }} {% if btn_class %}{{ btn_class }}{% endif %}"
+       {% if btn_onclick %}onclick="{{ btn_onclick }}"{% endif %}>
+{% else %}
+    <button type="{% if submit %}submit{% else %}button{% endif %}"
+            {% if btn_id %}id="{{ btn_id }}"{% endif %}
+            class="{{ base_classes }} {{ size_classes }} {{ type_classes }} {{ disabled_classes }} {{ width_classes }} {% if btn_class %}{{ btn_class }}{% endif %}"
+            {% if disabled or loading %}disabled{% endif %}
+            {% if btn_onclick %}onclick="{{ btn_onclick }}"{% endif %}>
+{% endif %}
+
+    {% if loading %}
+        {% include 'components/loading_spinner.html' with spinner_size='sm' %}
+        <span class="ml-2">Loading...</span>
+    {% else %}
+        {% if icon_svg and icon_pos == 'left' %}
+            {{ icon_svg|safe }}
+            {% if btn_text %}<span class="ml-2">{{ btn_text }}</span>{% endif %}
+        {% elif icon_svg and icon_pos == 'right' %}
+            {% if btn_text %}<span class="mr-2">{{ btn_text }}</span>{% endif %}
+            {{ icon_svg|safe }}
+        {% else %}
+            {{ btn_text }}
+        {% endif %}
+    {% endif %}
+
+{% if btn_href %}
+    </a>
+{% else %}
+    </button>
+{% endif %}
+
+{% endwith %} {# width_classes #}
+{% endwith %} {# disabled_classes #}
+{% endwith %} {# type_classes #}
+{% endwith %} {# size_classes #}
+{% endwith %} {# base_classes #}
+{% endwith %} {# submit #}
+{% endwith %} {# full_width #}
+{% endwith %} {# loading #}
+{% endwith %} {# disabled #}
+{% endwith %} {# icon_pos #}
+{% endwith %} {# size #}
+{% endwith %} {# type #}

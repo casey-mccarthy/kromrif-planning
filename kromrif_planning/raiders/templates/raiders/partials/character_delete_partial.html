@@ -1,0 +1,75 @@
+{% load static %}
+
+<div class="text-center">
+    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+        <svg class="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+        </svg>
+    </div>
+    <div class="mt-3">
+        <h3 class="text-lg font-medium text-gray-900">Delete Character</h3>
+        <div class="mt-2">
+            <p class="text-sm text-gray-500">
+                Are you sure you want to delete "{{ character.name }}"? This action cannot be undone.
+            </p>
+        </div>
+    </div>
+    
+    <!-- Character Info -->
+    <div class="mt-4 bg-gray-50 rounded-lg p-3">
+        <dl class="grid grid-cols-2 gap-2 text-sm">
+            <div>
+                <dt class="font-medium text-gray-500">Name</dt>
+                <dd class="text-gray-900">{{ character.name }}</dd>
+            </div>
+            <div>
+                <dt class="font-medium text-gray-500">Class</dt>
+                <dd class="text-gray-900">{{ character.character_class }}</dd>
+            </div>
+            <div>
+                <dt class="font-medium text-gray-500">Level</dt>
+                <dd class="text-gray-900">{{ character.level }}</dd>
+            </div>
+            <div>
+                <dt class="font-medium text-gray-500">Owner</dt>
+                <dd class="text-gray-900">{{ character.user.name|default:character.user.username }}</dd>
+            </div>
+        </dl>
+    </div>
+    
+    <!-- Warnings -->
+    {% if character.get_all_alts.exists %}
+        <div class="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-yellow-700">
+                        This character has {{ character.get_all_alts.count }} alt character(s).
+                    </p>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+    
+    <form hx-post="{{ action_url }}" hx-swap="outerHTML" class="mt-5">
+        {% csrf_token %}
+        <div class="flex justify-center space-x-3">
+            <button type="button" 
+                    class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                    onclick="document.getElementById('modal').classList.add('hidden')">
+                Cancel
+            </button>
+            <button type="submit" 
+                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                </svg>
+                Delete Character
+            </button>
+        </div>
+    </form>
+</div>

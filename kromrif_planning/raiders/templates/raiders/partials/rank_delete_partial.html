@@ -1,0 +1,119 @@
+{% load static %}
+
+<form hx-post="{% url 'raiders:rank-delete-htmx' rank.pk %}"
+      hx-target="#modal-content"
+      hx-swap="innerHTML"
+      class="space-y-4">
+    {% csrf_token %}
+    
+    <!-- Rank Info -->
+    <div class="text-center mb-6">
+        <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+            <svg class="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+            </svg>
+        </div>
+        <div class="mt-3">
+            <h3 class="text-lg font-medium text-gray-900">Delete Rank</h3>
+            <div class="mt-2">
+                <div class="flex items-center justify-center">
+                    <div class="w-6 h-6 rounded-full border border-gray-300 mr-2"
+                         style="background-color: {{ rank.color }};"></div>
+                    <div class="text-left">
+                        <p class="text-sm font-medium text-gray-900">{{ rank.name }}</p>
+                        <p class="text-xs text-gray-500">Level {{ rank.level }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Warning about affected characters -->
+    {% if rank.character_set.exists %}
+        <div class="rounded-md bg-yellow-50 p-4">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-yellow-800">
+                        This will affect {{ rank.character_set.count }} character{{ rank.character_set.count|pluralize }}
+                    </h3>
+                    <div class="mt-2 text-sm text-yellow-700">
+                        <p>Characters will lose their rank assignment.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="rounded-md bg-red-50 p-4">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                </svg>
+            </div>
+            <div class="ml-3">
+                <h3 class="text-sm font-medium text-red-800">
+                    This action cannot be undone
+                </h3>
+                <div class="mt-2 text-sm text-red-700">
+                    <p>The rank will be permanently deleted.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation -->
+    <div>
+        <label for="confirm_name_modal" class="block text-sm font-medium text-gray-700">
+            Type "{{ rank.name }}" to confirm:
+        </label>
+        <input type="text" 
+               name="confirm_name" 
+               id="confirm_name_modal" 
+               required
+               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
+               placeholder="{{ rank.name }}">
+    </div>
+
+    <!-- Form Actions -->
+    <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+        <button type="button" 
+                class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                onclick="document.getElementById('modal').classList.add('hidden')">
+            Cancel
+        </button>
+        <button type="submit" 
+                id="delete-button-modal"
+                disabled
+                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+            </svg>
+            Delete Rank
+        </button>
+    </div>
+</form>
+
+<script>
+// Enable delete button only when confirmation text matches
+document.addEventListener('DOMContentLoaded', function() {
+    const confirmInput = document.getElementById('confirm_name_modal');
+    const deleteButton = document.getElementById('delete-button-modal');
+    const expectedName = '{{ rank.name }}';
+    
+    if (confirmInput && deleteButton) {
+        confirmInput.addEventListener('input', function() {
+            if (this.value === expectedName) {
+                deleteButton.disabled = false;
+            } else {
+                deleteButton.disabled = true;
+            }
+        });
+    }
+});
+</script>

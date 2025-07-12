@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Component Library Demo - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900">Component Library Demo</h1>
+        <p class="mt-2 text-lg text-gray-600">
+            Showcase of reusable UI components for the Kromrif Planning application.
+        </p>
+    </div>
+
+    <!-- Alerts Demo -->
+    <div class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">Alerts</h2>
+        <div class="space-y-4">
+            {% include 'components/alert.html' with alert_type='success' alert_title='Success!' alert_message='Your character has been created successfully.' alert_dismissible=true %}
+            {% include 'components/alert.html' with alert_type='error' alert_title='Error!' alert_message='Failed to save character. Please check your input.' %}
+            {% include 'components/alert.html' with alert_type='warning' alert_title='Warning!' alert_message='This action will affect multiple characters.' %}
+            {% include 'components/alert.html' with alert_type='info' alert_message='Character levels are automatically calculated based on experience.' %}
+        </div>
+    </div>
+
+    <!-- Buttons Demo -->
+    <div class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">Buttons</h2>
+        
+        <!-- Button Types -->
+        <div class="mb-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-3">Button Types</h3>
+            <div class="flex flex-wrap gap-3">
+                {% include 'components/button.html' with btn_text='Primary' btn_type='primary' %}
+                {% include 'components/button.html' with btn_text='Secondary' btn_type='secondary' %}
+                {% include 'components/button.html' with btn_text='Success' btn_type='success' %}
+                {% include 'components/button.html' with btn_text='Warning' btn_type='warning' %}
+                {% include 'components/button.html' with btn_text='Danger' btn_type='danger' %}
+            </div>
+        </div>
+
+        <!-- Button Sizes -->
+        <div class="mb-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-3">Button Sizes</h3>
+            <div class="flex items-center gap-3">
+                {% include 'components/button.html' with btn_text='Small' btn_size='sm' %}
+                {% include 'components/button.html' with btn_text='Medium' btn_size='md' %}
+                {% include 'components/button.html' with btn_text='Large' btn_size='lg' %}
+            </div>
+        </div>
+
+        <!-- Button Icons -->
+        <div class="mb-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-3">Button Icons</h3>
+            <div class="flex flex-wrap gap-3">
+                {% include 'components/button.html' with btn_text='Save' btn_icon='save' %}
+                {% include 'components/button.html' with btn_text='Edit' btn_icon='edit' btn_type='secondary' %}
+                {% include 'components/button.html' with btn_text='Delete' btn_icon='delete' btn_type='danger' %}
+                {% include 'components/button.html' with btn_text='Add New' btn_icon='add' btn_type='success' %}
+                {% include 'components/button.html' with btn_text='View Details' btn_icon='view' btn_type='secondary' %}
+            </div>
+        </div>
+
+        <!-- Button States -->
+        <div class="mb-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-3">Button States</h3>
+            <div class="flex gap-3">
+                {% include 'components/button.html' with btn_text='Normal' %}
+                {% include 'components/button.html' with btn_text='Disabled' btn_disabled=true %}
+                {% include 'components/button.html' with btn_text='Loading' btn_loading=true %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Cards Demo -->
+    <div class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">Cards</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Basic Card -->
+            {% include 'components/card.html' with card_title='Basic Card' %}
+                <p class="text-gray-600">This is a basic card with just a title and content.</p>
+            {% endinclude %}
+
+            <!-- Card with Subtitle -->
+            {% include 'components/card.html' with card_title='Character Details' card_subtitle='Level 60 Warrior' %}
+                <div class="space-y-2">
+                    <p><span class="font-medium">Name:</span> Krogar</p>
+                    <p><span class="font-medium">Guild:</span> Kromrif</p>
+                    <p><span class="font-medium">DKP:</span> 1,250</p>
+                </div>
+            {% endinclude %}
+
+            <!-- Card with Actions -->
+            {% include 'components/card.html' with card_title='Raid Event' card_header_actions='<button class="text-indigo-600 hover:text-indigo-900 text-sm">Edit</button>' %}
+                <div class="space-y-2">
+                    <p><span class="font-medium">Event:</span> Plane of Time</p>
+                    <p><span class="font-medium">Date:</span> March 15, 2024</p>
+                    <p><span class="font-medium">Participants:</span> 54</p>
+                </div>
+            {% endinclude %}
+        </div>
+    </div>
+
+    <!-- Loading Spinners Demo -->
+    <div class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">Loading Spinners</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {% include 'components/card.html' with card_title='Small Spinner' %}
+                {% include 'components/loading_spinner.html' with spinner_size='sm' spinner_text='Loading...' %}
+            {% endinclude %}
+
+            {% include 'components/card.html' with card_title='Medium Spinner' %}
+                {% include 'components/loading_spinner.html' with spinner_size='md' spinner_text='Processing...' %}
+            {% endinclude %}
+
+            {% include 'components/card.html' with card_title='Large Spinner' %}
+                {% include 'components/loading_spinner.html' with spinner_size='lg' spinner_text='Calculating DKP...' %}
+            {% endinclude %}
+        </div>
+    </div>
+
+    <!-- Breadcrumb Demo -->
+    <div class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">Breadcrumbs</h2>
+        {% with breadcrumb_items|default:demo_breadcrumbs as breadcrumbs %}
+            {% include 'components/breadcrumb.html' with breadcrumbs=breadcrumbs %}
+        {% endwith %}
+    </div>
+
+    <!-- Form Fields Demo -->
+    <div class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">Form Fields</h2>
+        {% include 'components/card.html' with card_title='Sample Form' %}
+            <form class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Character Name</label>
+                        <input type="text" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Enter character name">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Character Class</label>
+                        <select class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            <option>Warrior</option>
+                            <option>Ranger</option>
+                            <option>Paladin</option>
+                            <option>Shadow Knight</option>
+                            <option>Monk</option>
+                            <option>Bard</option>
+                            <option>Rogue</option>
+                            <option>Shaman</option>
+                            <option>Necromancer</option>
+                            <option>Wizard</option>
+                            <option>Magician</option>
+                            <option>Enchanter</option>
+                            <option>Druid</option>
+                            <option>Cleric</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <textarea rows="4" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Enter character description..."></textarea>
+                </div>
+
+                <div class="flex items-center">
+                    <input type="checkbox" class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                    <label class="ml-2 block text-sm text-gray-900">This is my main character</label>
+                </div>
+
+                <div class="flex justify-end space-x-3">
+                    {% include 'components/button.html' with btn_text='Cancel' btn_type='secondary' %}
+                    {% include 'components/button.html' with btn_text='Save Character' btn_type='primary' btn_icon='save' %}
+                </div>
+            </form>
+        {% endinclude %}
+    </div>
+
+    <!-- Modal Demo -->
+    <div class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">Modal</h2>
+        <div class="space-x-3">
+            {% include 'components/button.html' with btn_text='Open Small Modal' btn_onclick="document.getElementById('demo-modal-sm').classList.remove('hidden')" %}
+            {% include 'components/button.html' with btn_text='Open Large Modal' btn_onclick="document.getElementById('demo-modal-lg').classList.remove('hidden')" %}
+        </div>
+    </div>
+
+    <!-- Pagination Demo -->
+    <div class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">Pagination</h2>
+        {% include 'components/card.html' with card_title='Sample Data Table' %}
+            <!-- Sample table content -->
+            <div class="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+                <table class="min-w-full divide-y divide-gray-300">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Character</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DKP</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        <tr><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Krogar</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Warrior</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">60</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">1,250</td></tr>
+                        <tr><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Mystral</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Cleric</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">60</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">1,180</td></tr>
+                        <tr><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Shadowfax</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Ranger</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">59</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">1,095</td></tr>
+                        <tr><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Voltaic</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Wizard</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">60</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">1,045</td></tr>
+                        <tr><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Grimjaw</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Shadow Knight</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">58</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">985</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Sample pagination (static for demo) -->
+            <div class="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1 flex justify-between sm:hidden">
+                        <a href="#" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Previous</a>
+                        <a href="#" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Next</a>
+                    </div>
+                    <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                        <div>
+                            <p class="text-sm text-gray-700">
+                                Showing <span class="font-medium">1</span> to <span class="font-medium">5</span> of <span class="font-medium">97</span> results
+                            </p>
+                        </div>
+                        <div>
+                            <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                                <a href="#" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">Previous</a>
+                                <span class="bg-indigo-50 border-indigo-500 text-indigo-600 relative inline-flex items-center px-4 py-2 border text-sm font-medium">1</span>
+                                <a href="#" class="bg-white border-gray-300 text-gray-500 hover:bg-gray-50 relative inline-flex items-center px-4 py-2 border text-sm font-medium">2</a>
+                                <a href="#" class="bg-white border-gray-300 text-gray-500 hover:bg-gray-50 relative inline-flex items-center px-4 py-2 border text-sm font-medium">3</a>
+                                <a href="#" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">Next</a>
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endinclude %}
+    </div>
+</div>
+
+<!-- Demo Modals -->
+{% include 'components/modal.html' with modal_id='demo-modal-sm' modal_title='Small Modal Demo' modal_size='sm' %}
+    <p class="text-gray-600 mb-4">This is a small modal for quick actions or confirmations.</p>
+    <div class="flex justify-end space-x-3">
+        {% include 'components/button.html' with btn_text='Cancel' btn_type='secondary' btn_onclick="document.getElementById('demo-modal-sm').classList.add('hidden')" %}
+        {% include 'components/button.html' with btn_text='Confirm' btn_type='primary' btn_onclick="document.getElementById('demo-modal-sm').classList.add('hidden')" %}
+    </div>
+{% endinclude %}
+
+{% include 'components/modal.html' with modal_id='demo-modal-lg' modal_title='Large Modal Demo' modal_size='lg' %}
+    <div class="space-y-4">
+        <p class="text-gray-600">This is a large modal suitable for forms or detailed content.</p>
+        
+        <form class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                    <input type="text" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                    <input type="text" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input type="email" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+            </div>
+            
+            <div class="flex justify-end space-x-3 pt-4">
+                {% include 'components/button.html' with btn_text='Cancel' btn_type='secondary' btn_onclick="document.getElementById('demo-modal-lg').classList.add('hidden')" %}
+                {% include 'components/button.html' with btn_text='Save' btn_type='primary' btn_icon='save' %}
+            </div>
+        </form>
+    </div>
+{% endinclude %}
+{% endblock %}
+
+{% block extra_body %}
+<script>
+// Demo breadcrumb data (in a real app, this would come from the view)
+window.demo_breadcrumbs = [
+    {text: 'Home', url: '/'},
+    {text: 'Components', url: '/demo/'},
+    {text: 'Demo Page', url: null}
+];
+</script>
+{% endblock %}
