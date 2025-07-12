@@ -1,0 +1,11 @@
+# Task ID: 11
+# Title: Frontend Implementation with Tailwind CSS and HTMX
+# Status: pending
+# Dependencies: 3, 4
+# Priority: medium
+# Description: Create modern, responsive web frontends for character management and guild roster functionality using Tailwind CSS and HTMX with proper static file compilation and URL routing.
+# Details:
+Fix current Tailwind CSS static file compilation issues by configuring django-tailwind's npm build process and ensuring proper collectstatic handling. Resolve URL routing problems for user detail pages by reviewing URL patterns and view configurations. Implement Phase 2: Character Management UI with responsive list views, detailed character cards, and HTMX-powered create/edit forms. Build Phase 3: Guild Roster dashboard with rank management interface, member search/filtering, and real-time updates via HTMX. Create Phase 4: Reusable component library including HTMX-enhanced forms, modal dialogs, toast notifications, and loading states. Implement Phase 5: Enhanced interactivity with progressive enhancement, smooth transitions, and optimistic UI updates. Ensure all templates follow established patterns with proper CSRF handling, role-based styling, and Alpine.js integration for lightweight interactions.
+
+# Test Strategy:
+Verify Tailwind CSS static files compile correctly and load without 404 errors. Test user detail page routing resolves properly. Validate character management forms work with HTMX for create/read/update/delete operations. Confirm guild roster dashboard displays properly with filtering and search functionality. Test component library elements render consistently across different screen sizes. Verify progressive enhancement works with and without JavaScript enabled. Test role-based UI elements display correctly for different user types.

@@ -208,6 +208,22 @@ class User(AbstractUser):
             str: Role display name
         """
         return dict(self.ROLE_CHOICES).get(self.role_group, 'Unknown')
+    
+    def get_role_color(self) -> str:
+        """Get Tailwind color class for user's role.
+        
+        Returns:
+            str: Tailwind color class (without bg- or text- prefix)
+        """
+        role_colors = {
+            'developer': 'purple',
+            'officer': 'blue',
+            'recruiter': 'green',
+            'member': 'gray',
+            'applicant': 'yellow',
+            'guest': 'gray',
+        }
+        return role_colors.get(self.role_group, 'gray')
 
     def has_role_permission(self, required_role: str) -> bool:
         """Check if user has required role or higher.

@@ -35,21 +35,22 @@ class RankAdmin(admin.ModelAdmin):
     color_display.short_description = 'Color'
     
     def character_count(self, obj):
-        return obj.characters.count()
+        # Character count not available since rank-character relationship was removed
+        return 0
     character_count.short_description = 'Characters'
 
 
 @admin.register(Character)
 class CharacterAdmin(admin.ModelAdmin):
-    list_display = ['name', 'character_class', 'level', 'rank', 'status', 'user', 'character_type', 'is_active', 'created_at']
-    list_filter = ['character_class', 'rank', 'status', 'is_active', 'level', 'created_at', 'main_character']
+    list_display = ['name', 'character_class', 'level', 'status', 'user', 'character_type', 'is_active', 'created_at']
+    list_filter = ['character_class', 'status', 'is_active', 'level', 'created_at', 'main_character']
     search_fields = ['name', 'user__username', 'user__email', 'description']
     autocomplete_fields = ['main_character']
     ordering = ['name']
     
     fieldsets = (
         (None, {
-            'fields': ('name', 'character_class', 'level', 'rank', 'status', 'user')
+            'fields': ('name', 'character_class', 'level', 'status', 'user')
         }),
         ('Character Relationship', {
             'fields': ('main_character',),
@@ -69,7 +70,7 @@ class CharacterAdmin(admin.ModelAdmin):
     
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        return qs.select_related('user', 'rank', 'main_character')
+        return qs.select_related('user', 'main_character')
     
     def character_type(self, obj):
         if obj.is_main:

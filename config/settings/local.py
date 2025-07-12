@@ -80,5 +80,10 @@ if env("USE_DOCKER") == "yes":
 # https://django-extensions.readthedocs.io/en/latest/installation_instructions.html#configuration
 INSTALLED_APPS += ["django_extensions"]
 
+# django-tailwind
+# ------------------------------------------------------------------------------
+# Enable Tailwind hot reloading in development
+INTERNAL_IPS += ["127.0.0.1"]
+
 # Your stuff...
 # ------------------------------------------------------------------------------

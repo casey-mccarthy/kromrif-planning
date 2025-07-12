@@ -17,7 +17,7 @@ class RankViewSet(viewsets.ModelViewSet):
     ViewSet for managing guild ranks.
     Only staff users can create/update/delete ranks.
     """
-    queryset = Rank.objects.annotate(character_count=Count('characters'))
+    queryset = Rank.objects.all()
     serializer_class = RankSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
@@ -36,7 +36,7 @@ class CharacterViewSet(viewsets.ModelViewSet):
     ViewSet for managing characters.
     Users can only edit their own characters unless they are staff.
     """
-    queryset = Character.objects.select_related('user', 'rank', 'main_character')
+    queryset = Character.objects.select_related('user', 'main_character')
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name', 'description', 'user__username']

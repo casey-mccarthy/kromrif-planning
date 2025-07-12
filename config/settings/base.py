@@ -82,6 +82,9 @@ THIRD_PARTY_APPS = [
     "rest_framework.authtoken",
     "corsheaders",
     "drf_spectacular",
+    "tailwind",
+    "theme",
+    "django_htmx",
 ]
 
 LOCAL_APPS = [
@@ -146,6 +149,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
+    "django_htmx.middleware.HtmxMiddleware",
 ]
 
 # STATIC
@@ -328,5 +332,13 @@ SPECTACULAR_SETTINGS = {
     "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAdminUser"],
     "SCHEMA_PATH_PREFIX": "/api/",
 }
+
+# django-tailwind
+# ------------------------------------------------------------------------------
+TAILWIND_APP_NAME = "theme"
+
+# NPM binary path (for development)
+NPM_BIN_PATH = "npm"
+
 # Your stuff...
 # ------------------------------------------------------------------------------

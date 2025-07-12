@@ -21,6 +21,8 @@ urlpatterns = [
     # User management
     path("users/", include("kromrif_planning.users.urls", namespace="users")),
     path("accounts/", include("allauth.urls")),
+    # Character and raider management
+    path("raiders/", include("kromrif_planning.raiders.urls", namespace="raiders")),
     # Your stuff: custom urls includes go here
     # ...
     # Media files

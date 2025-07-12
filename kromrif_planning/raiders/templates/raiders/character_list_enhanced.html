@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Characters - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+        {% with breadcrumb_items as breadcrumbs %}
+            {% include 'components/breadcrumb.html' with breadcrumbs=breadcrumbs %}
+        {% endwith %}
+        
+        <div class="flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900">Character Management</h1>
+                <p class="mt-2 text-sm text-gray-600">Manage your guild characters and their details</p>
+            </div>
+            {% if user.is_authenticated %}
+                <div class="flex space-x-3">
+                    {% include 'components/button.html' with btn_text='New Character' btn_type='primary' btn_icon='add' btn_href='/raiders/characters/create/' %}
+                    
+                    {% if user.is_staff %}
+                        {% include 'components/button.html' with btn_text='Bulk Import' btn_type='secondary' btn_icon='download' btn_onclick="openModal('bulk-import-modal')" %}
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Enhanced Search & Filters -->
+    {% include 'components/search_filter.html' with search_url='/raiders/characters/search/' search_target='#character-results' filters=quick_filters show_advanced=true %}
+        {% block advanced_filters %}
+            <div>
+                <label for="level_min" class="block text-sm font-medium text-gray-700">Min Level</label>
+                <input type="number" name="level_min" id="level_min" min="1" max="70" 
+                       class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+            </div>
+            <div>
+                <label for="level_max" class="block text-sm font-medium text-gray-700">Max Level</label>
+                <input type="number" name="level_max" id="level_max" min="1" max="70" 
+                       class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+            </div>
+        {% endblock %}
+    {% endinclude %}
+
+    <!-- Bulk Actions -->
+    {% if user.is_staff %}
+        {% include 'components/bulk_actions.html' with actions=bulk_actions_list target_url='/raiders/characters/bulk-action/' %}
+    {% endif %}
+
+    <!-- Live Updates for real-time character status -->
+    {% include 'components/live_updates.html' with update_url='/raiders/characters/live-updates/' update_target='#character-results' show_status=false %}
+
+    <!-- Character Results -->
+    <div id="character-results">
+        {% include 'components/data_table.html' with table_data=characters columns=character_columns table_id='character-table' selectable=user.is_staff selection_name='selected_characters' sortable=true sort_url='/raiders/characters/sort/' %}
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj %}
+        {% include 'components/pagination.html' with page_obj=page_obj pagination_query_params=request.GET.urlencode %}
+    {% endif %}
+</div>
+
+<!-- Modals -->
+{% if user.is_staff %}
+    <!-- Bulk Import Modal -->
+    {% include 'components/modal.html' with modal_id='bulk-import-modal' modal_title='Bulk Import Characters' modal_size='lg' %}
+        {% include 'components/htmx_form.html' with form_action='/raiders/characters/bulk-import/' form_target='#bulk-import-modal-content' form_encoding='multipart/form-data' %}
+            <div class="space-y-4">
+                <div>
+                    <label for="import_file" class="block text-sm font-medium text-gray-700">Character Data File</label>
+                    <input type="file" name="import_file" id="import_file" accept=".csv,.xlsx,.json"
+                           class="mt-1 block w-full text-sm text-gray-500 border border-gray-300 rounded-md
+                                  file:mr-4 file:py-2 file:px-4 file:rounded-l-md file:border-0
+                                  file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700
+                                  hover:file:bg-indigo-100">
+                    <p class="mt-2 text-sm text-gray-500">
+                        Supported formats: CSV, Excel (.xlsx), or JSON. 
+                        <a href="/raiders/characters/import-template/" class="text-indigo-600 hover:text-indigo-500">Download template</a>
+                    </p>
+                </div>
+                
+                <div class="flex items-center">
+                    <input type="checkbox" name="update_existing" id="update_existing" 
+                           class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                    <label for="update_existing" class="ml-2 block text-sm text-gray-900">
+                        Update existing characters
+                    </label>
+                </div>
+                
+                <div class="flex items-center">
+                    <input type="checkbox" name="validate_only" id="validate_only" 
+                           class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                    <label for="validate_only" class="ml-2 block text-sm text-gray-900">
+                        Validate only (don't import)
+                    </label>
+                </div>
+            </div>
+            
+            <div class="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
+                {% include 'components/button.html' with btn_text='Cancel' btn_type='secondary' btn_onclick="closeModal('bulk-import-modal')" %}
+                {% include 'components/button.html' with btn_text='Import Characters' btn_type='primary' btn_icon='download' btn_submit=true %}
+            </div>
+        {% endinclude %}
+    {% endinclude %}
+
+    <!-- Character Details Quick View Modal -->
+    {% include 'components/modal.html' with modal_id='character-details-modal' modal_title='Character Details' modal_size='lg' %}
+        <div id="character-details-content">
+            <!-- Content loaded via HTMX -->
+        </div>
+    {% endinclude %}
+{% endif %}
+
+<!-- Character Actions Dropdown Template -->
+<template id="character-actions-template">
+    <div class="relative inline-block text-left" x-data="{ open: false }">
+        <button @click="open = !open" 
+                class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+            Actions
+            <svg class="ml-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>
+        </button>
+        
+        <div x-show="open" @click.away="open = false" x-transition
+             class="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
+            <div class="py-1">
+                <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">View Details</a>
+                <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Edit Character</a>
+                <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">View DKP History</a>
+                {% if user.is_staff %}
+                    <div class="border-t border-gray-100"></div>
+                    <a href="#" class="block px-4 py-2 text-sm text-red-700 hover:bg-gray-100">Archive Character</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</template>
+{% endblock %}
+
+{% block extra_body %}
+<script>
+// Page-specific data and configuration
+document.addEventListener('DOMContentLoaded', function() {
+    // Configure auto-refresh for character list
+    const characterTable = document.getElementById('character-table');
+    if (characterTable) {
+        // Refresh every 2 minutes when tab is active
+        setInterval(() => {
+            if (document.visibilityState === 'visible') {
+                htmx.ajax('GET', window.location.pathname, {
+                    target: '#character-results',
+                    swap: 'innerHTML'
+                });
+            }
+        }, 120000);
+    }
+    
+    // Initialize tooltips for character status badges
+    document.querySelectorAll('[data-tooltip]').forEach(element => {
+        KromrifUtils.initializeTooltips(element);
+    });
+    
+    // Add keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        // Ctrl/Cmd + N for new character
+        if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+            e.preventDefault();
+            window.location.href = '/raiders/characters/create/';
+        }
+        
+        // Ctrl/Cmd + I for bulk import (staff only)
+        if ((e.ctrlKey || e.metaKey) && e.key === 'i' && {{ user.is_staff|yesno:'true,false' }}) {
+            e.preventDefault();
+            KromrifUtils.openModal('bulk-import-modal');
+        }
+    });
+    
+    // Character quick view functionality
+    window.showCharacterDetails = function(characterId) {
+        htmx.ajax('GET', `/raiders/characters/${characterId}/quick-view/`, {
+            target: '#character-details-content',
+            swap: 'innerHTML'
+        });
+        KromrifUtils.openModal('character-details-modal');
+    };
+    
+    // Enhanced search with autocomplete
+    const searchInput = document.querySelector('input[name="search"]');
+    if (searchInput) {
+        let searchTimeout;
+        
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                // Add search suggestions logic here
+                console.log('Search for:', this.value);
+            }, 300);
+        });
+    }
+});
+
+// Template data for JavaScript (in a real app, this would come from the view)
+window.pageData = {
+    quickFilters: {{ quick_filters|safe }},
+    bulkActions: {{ bulk_actions_list|safe }},
+    characterColumns: {{ character_columns|safe }},
+    userIsStaff: {{ user.is_staff|yesno:'true,false' }},
+    breadcrumbs: [
+        {text: 'Home', url: '{% url "home" %}'},
+        {text: 'Characters', url: null}
+    ]
+};
+</script>
+{% endblock %}

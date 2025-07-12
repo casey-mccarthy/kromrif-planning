@@ -93,14 +93,6 @@ class Character(models.Model):
         help_text="The user who owns this character"
     )
     
-    rank = models.ForeignKey(
-        Rank,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='characters',
-        help_text="Character's guild rank"
-    )
     
     main_character = models.ForeignKey(
         'self',

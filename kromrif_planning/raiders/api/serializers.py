@@ -18,20 +18,20 @@ class RankSerializer(serializers.ModelSerializer):
     
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        data['character_count'] = instance.characters.count()
+        # Character count is not available since rank-character relationship was removed
+        data['character_count'] = 0
         return data
 
 
 class CharacterListSerializer(serializers.ModelSerializer):
     user = serializers.StringRelatedField()
-    rank = serializers.StringRelatedField()
     character_type = serializers.SerializerMethodField()
     
     class Meta:
         model = Character
         fields = [
             'id', 'name', 'character_class', 'level', 'status',
-            'rank', 'user', 'character_type', 'is_active', 'created_at'
+            'user', 'character_type', 'is_active', 'created_at'
         ]
     
     def get_character_type(self, obj):
@@ -46,11 +46,6 @@ class CharacterDetailSerializer(serializers.ModelSerializer):
         queryset=User.objects.all(),
         default=serializers.CurrentUserDefault()
     )
-    rank = serializers.PrimaryKeyRelatedField(
-        queryset=Rank.objects.all(),
-        required=False,
-        allow_null=True
-    )
     main_character = serializers.PrimaryKeyRelatedField(
         queryset=Character.objects.all(),
         required=False,
@@ -63,7 +58,7 @@ class CharacterDetailSerializer(serializers.ModelSerializer):
         model = Character
         fields = [
             'id', 'name', 'character_class', 'level', 'status',
-            'rank', 'user', 'main_character', 'alt_characters',
+            'user', 'main_character', 'alt_characters',
             'description', 'is_active', 'ownership_history',
             'created_at', 'updated_at'
         ]
