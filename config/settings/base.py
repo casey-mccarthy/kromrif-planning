@@ -90,6 +90,7 @@ THIRD_PARTY_APPS = [
 LOCAL_APPS = [
     "kromrif_planning.users",
     "kromrif_planning.raiders",
+    "kromrif_planning.dkp",
     # Your stuff: custom apps go here
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
