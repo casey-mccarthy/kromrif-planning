@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from ..models import Character, Rank, CharacterOwnership
+from ..models import Character, Rank, CharacterOwnership, Event, Raid, RaidAttendance
 
 User = get_user_model()
 
@@ -120,3 +120,165 @@ class CharacterTransferSerializer(serializers.Serializer):
             notes=self.validated_data.get('notes', ''),
             transferred_by=self.context['request'].user
         )
+
+
+class EventSerializer(serializers.ModelSerializer):
+    raid_count = serializers.IntegerField(read_only=True)
+    
+    class Meta:
+        model = Event
+        fields = [
+            'id', 'name', 'description', 'base_points', 'on_time_bonus',
+            'is_active', 'color', 'raid_count', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+    
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['raid_count'] = instance.raids.count()
+        return data
+
+
+class RaidListSerializer(serializers.ModelSerializer):
+    event = serializers.StringRelatedField()
+    leader = serializers.StringRelatedField()
+    attendance_count = serializers.SerializerMethodField()
+    formatted_datetime = serializers.CharField(read_only=True)
+    
+    class Meta:
+        model = Raid
+        fields = [
+            'id', 'title', 'event', 'date', 'start_time', 'leader',
+            'status', 'attendance_count', 'points_awarded', 'formatted_datetime'
+        ]
+    
+    def get_attendance_count(self, obj):
+        return {
+            'total': obj.get_attendance_count(),
+            'on_time': obj.get_on_time_count()
+        }
+
+
+class RaidDetailSerializer(serializers.ModelSerializer):
+    event = EventSerializer(read_only=True)
+    event_id = serializers.PrimaryKeyRelatedField(
+        source='event',
+        queryset=Event.objects.filter(is_active=True),
+        write_only=True
+    )
+    leader = serializers.StringRelatedField(read_only=True)
+    leader_id = serializers.PrimaryKeyRelatedField(
+        source='leader',
+        queryset=User.objects.all(),
+        required=False,
+        allow_null=True,
+        write_only=True
+    )
+    attendance_summary = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Raid
+        fields = [
+            'id', 'event', 'event_id', 'title', 'date', 'start_time', 'end_time',
+            'leader', 'leader_id', 'notes', 'status', 'parse_attendance',
+            'points_awarded', 'attendance_summary', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['created_at', 'updated_at', 'points_awarded']
+    
+    def get_attendance_summary(self, obj):
+        return {
+            'total_count': obj.get_attendance_count(),
+            'on_time_count': obj.get_on_time_count(),
+            'attendance_list': RaidAttendanceSerializer(
+                obj.attendance_records.all()[:20], many=True
+            ).data
+        }
+
+
+class RaidAttendanceSerializer(serializers.ModelSerializer):
+    user = serializers.StringRelatedField(read_only=True)
+    user_id = serializers.PrimaryKeyRelatedField(
+        source='user',
+        queryset=User.objects.all(),
+        write_only=True
+    )
+    raid = serializers.StringRelatedField(read_only=True)
+    recorded_by = serializers.StringRelatedField(read_only=True)
+    
+    class Meta:
+        model = RaidAttendance
+        fields = [
+            'id', 'raid', 'user', 'user_id', 'character_name', 'on_time',
+            'notes', 'recorded_by', 'created_at'
+        ]
+        read_only_fields = ['created_at', 'recorded_by']
+    
+    def create(self, validated_data):
+        validated_data['recorded_by'] = self.context['request'].user
+        return super().create(validated_data)
+
+
+class BulkAttendanceSerializer(serializers.Serializer):
+    """Serializer for bulk attendance creation from character name list"""
+    
+    character_names = serializers.ListField(
+        child=serializers.CharField(max_length=64),
+        help_text="List of character names to record attendance for"
+    )
+    all_on_time = serializers.BooleanField(
+        default=True,
+        help_text="Mark all attendees as on-time"
+    )
+    
+    def validate_character_names(self, value):
+        if not value:
+            raise serializers.ValidationError("At least one character name is required")
+        
+        # Remove duplicates and empty strings
+        character_names = list(set(name.strip() for name in value if name.strip()))
+        
+        if len(character_names) != len(value):
+            raise serializers.ValidationError("Duplicate or empty character names found")
+        
+        return character_names
+    
+    def create(self, validated_data):
+        raid = self.context['raid']
+        recorded_by = self.context['request'].user
+        
+        results = RaidAttendance.parse_character_list(
+            raid=raid,
+            character_names=validated_data['character_names'],
+            recorded_by=recorded_by,
+            all_on_time=validated_data['all_on_time']
+        )
+        
+        return results
+
+
+class AwardPointsSerializer(serializers.Serializer):
+    """Serializer for awarding DKP points to raid attendees"""
+    
+    confirm = serializers.BooleanField(
+        help_text="Confirm that you want to award points for this raid"
+    )
+    
+    def validate_confirm(self, value):
+        if not value:
+            raise serializers.ValidationError("You must confirm to award points")
+        return value
+    
+    def create(self, validated_data):
+        raid = self.context['raid']
+        created_by = self.context['request'].user
+        
+        if raid.points_awarded:
+            raise serializers.ValidationError("Points have already been awarded for this raid")
+        
+        adjustments = raid.award_points(created_by=created_by)
+        
+        return {
+            'raid': raid,
+            'adjustments_created': len(adjustments),
+            'total_points_awarded': sum(adj.points for adj in adjustments)
+        }

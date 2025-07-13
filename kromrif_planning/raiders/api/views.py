@@ -2,13 +2,19 @@ from rest_framework import viewsets, permissions, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Count, Q
-from ..models import Character, Rank, CharacterOwnership
+from ..models import Character, Rank, CharacterOwnership, Event, Raid, RaidAttendance
 from .serializers import (
     CharacterListSerializer,
     CharacterDetailSerializer,
     RankSerializer,
     CharacterOwnershipSerializer,
-    CharacterTransferSerializer
+    CharacterTransferSerializer,
+    EventSerializer,
+    RaidListSerializer,
+    RaidDetailSerializer,
+    RaidAttendanceSerializer,
+    BulkAttendanceSerializer,
+    AwardPointsSerializer
 )
 
 
@@ -130,3 +136,178 @@ class CharacterOwnershipViewSet(viewsets.ReadOnlyModelViewSet):
             )
         
         return queryset
+
+
+class EventViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing raid events.
+    Staff users can create/update/delete events.
+    """
+    queryset = Event.objects.all()
+    serializer_class = EventSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['name', 'description']
+    ordering_fields = ['name', 'base_points', 'created_at']
+    ordering = ['name']
+    
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [permissions.IsAdminUser()]
+        return super().get_permissions()
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        # Filter by active status if specified
+        is_active = self.request.query_params.get('is_active', None)
+        if is_active is not None:
+            queryset = queryset.filter(is_active=is_active.lower() == 'true')
+        
+        return queryset
+
+
+class RaidViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing raids.
+    Leaders can manage their own raids, admins can manage all raids.
+    """
+    queryset = Raid.objects.select_related('event', 'leader')
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['title', 'notes', 'leader__username']
+    ordering_fields = ['date', 'start_time', 'created_at']
+    ordering = ['-date', '-start_time']
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return RaidListSerializer
+        return RaidDetailSerializer
+    
+    def get_permissions(self):
+        if self.action in ['create']:
+            return [permissions.IsAdminUser()]
+        return super().get_permissions()
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        # Filter by event if specified
+        event_id = self.request.query_params.get('event', None)
+        if event_id:
+            queryset = queryset.filter(event_id=event_id)
+        
+        # Filter by status if specified
+        status_filter = self.request.query_params.get('status', None)
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+        
+        # Filter by date range
+        date_from = self.request.query_params.get('date_from', None)
+        date_to = self.request.query_params.get('date_to', None)
+        if date_from:
+            queryset = queryset.filter(date__gte=date_from)
+        if date_to:
+            queryset = queryset.filter(date__lte=date_to)
+        
+        # Filter by leader for non-admin users
+        if not self.request.user.is_staff:
+            queryset = queryset.filter(
+                Q(leader=self.request.user) | Q(status__in=['scheduled', 'completed'])
+            )
+        
+        return queryset
+    
+    def perform_create(self, serializer):
+        # Set creator as leader if no leader specified
+        if not serializer.validated_data.get('leader'):
+            serializer.save(leader=self.request.user)
+        else:
+            serializer.save()
+    
+    @action(detail=True, methods=['get'])
+    def attendance(self, request, pk=None):
+        """Get attendance records for this raid."""
+        raid = self.get_object()
+        attendance_records = raid.attendance_records.select_related('user', 'recorded_by')
+        serializer = RaidAttendanceSerializer(attendance_records, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    def bulk_attendance(self, request, pk=None):
+        """Add bulk attendance from character name list."""
+        raid = self.get_object()
+        serializer = BulkAttendanceSerializer(
+            data=request.data,
+            context={'raid': raid, 'request': request}
+        )
+        serializer.is_valid(raise_exception=True)
+        results = serializer.save()
+        
+        return Response({
+            'created': len(results['created']),
+            'warnings': results['warnings'],
+            'errors': results['errors'],
+            'attendance_records': RaidAttendanceSerializer(
+                results['created'], many=True
+            ).data
+        }, status=status.HTTP_201_CREATED)
+    
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    def award_points(self, request, pk=None):
+        """Award DKP points to all raid attendees."""
+        raid = self.get_object()
+        serializer = AwardPointsSerializer(
+            data=request.data,
+            context={'raid': raid, 'request': request}
+        )
+        serializer.is_valid(raise_exception=True)
+        result = serializer.save()
+        
+        return Response({
+            'message': f'Successfully awarded points for {raid.title}',
+            'adjustments_created': result['adjustments_created'],
+            'total_points_awarded': result['total_points_awarded']
+        }, status=status.HTTP_201_CREATED)
+
+
+class RaidAttendanceViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing raid attendance records.
+    """
+    queryset = RaidAttendance.objects.select_related('user', 'raid', 'raid__event', 'recorded_by')
+    serializer_class = RaidAttendanceSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [filters.OrderingFilter]
+    ordering_fields = ['created_at', 'raid__date']
+    ordering = ['-created_at']
+    
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [permissions.IsAdminUser()]
+        return super().get_permissions()
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        # Filter by raid if specified
+        raid_id = self.request.query_params.get('raid', None)
+        if raid_id:
+            queryset = queryset.filter(raid_id=raid_id)
+        
+        # Filter by user if specified
+        user_id = self.request.query_params.get('user', None)
+        if user_id == 'me':
+            user_id = self.request.user.id
+        if user_id:
+            queryset = queryset.filter(user_id=user_id)
+        
+        # Filter by character name if specified
+        character_name = self.request.query_params.get('character', None)
+        if character_name:
+            queryset = queryset.filter(character_name__icontains=character_name)
+        
+        return queryset
+    
+    def perform_create(self, serializer):
+        serializer.save(recorded_by=self.request.user)
