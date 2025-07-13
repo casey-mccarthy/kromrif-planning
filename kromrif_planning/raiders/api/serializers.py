@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from ..models import Character, Rank, CharacterOwnership, Event, Raid, RaidAttendance, Item, LootDistribution
+from ..models import Character, Rank, CharacterOwnership, Event, Raid, RaidAttendance, Item, LootDistribution, LootAuditLog
 
 User = get_user_model()
 
@@ -565,3 +565,100 @@ class UserBalanceSerializer(serializers.Serializer):
             'dkp_balance': balance,
             'character_count': user.characters.count()
         }
+
+
+class LootAuditLogSerializer(serializers.ModelSerializer):
+    """
+    Serializer for audit log entries.
+    Read-only for reviewing historical data.
+    """
+    performed_by = serializers.StringRelatedField()
+    affected_user = serializers.StringRelatedField()
+    item = serializers.StringRelatedField()
+    distribution = serializers.StringRelatedField()
+    raid = serializers.StringRelatedField()
+    action_type_display = serializers.CharField(source='get_action_type_display', read_only=True)
+    summary = serializers.CharField(source='get_summary', read_only=True)
+    
+    class Meta:
+        model = LootAuditLog
+        fields = [
+            'id', 'action_type', 'action_type_display', 'timestamp',
+            'performed_by', 'affected_user', 'character_name',
+            'item', 'distribution', 'raid', 'description', 'summary',
+            'point_cost', 'quantity', 'old_values', 'new_values',
+            'ip_address', 'discord_context'
+        ]
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Make all fields read-only
+        for field in self.fields.values():
+            field.read_only = True
+
+
+class LootAuditLogListSerializer(serializers.ModelSerializer):
+    """
+    Compact serializer for audit log listings.
+    """
+    performed_by = serializers.StringRelatedField()
+    affected_user = serializers.StringRelatedField()
+    item_name = serializers.CharField(source='item.name', read_only=True)
+    action_type_display = serializers.CharField(source='get_action_type_display', read_only=True)
+    summary = serializers.CharField(source='get_summary', read_only=True)
+    
+    class Meta:
+        model = LootAuditLog
+        fields = [
+            'id', 'action_type', 'action_type_display', 'timestamp',
+            'performed_by', 'affected_user', 'character_name',
+            'item_name', 'description', 'summary', 'point_cost', 'quantity'
+        ]
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Make all fields read-only
+        for field in self.fields.values():
+            field.read_only = True
+
+
+class AuditLogFilterSerializer(serializers.Serializer):
+    """
+    Serializer for audit log filtering parameters.
+    """
+    action_type = serializers.ChoiceField(
+        choices=LootAuditLog.ACTION_TYPES,
+        required=False,
+        help_text="Filter by action type"
+    )
+    performed_by = serializers.CharField(
+        required=False,
+        help_text="Filter by username who performed the action"
+    )
+    affected_user = serializers.CharField(
+        required=False,
+        help_text="Filter by username affected by the action"
+    )
+    character_name = serializers.CharField(
+        required=False,
+        help_text="Filter by character name"
+    )
+    item_name = serializers.CharField(
+        required=False,
+        help_text="Filter by item name"
+    )
+    date_from = serializers.DateTimeField(
+        required=False,
+        help_text="Filter logs from this date (YYYY-MM-DD HH:MM:SS)"
+    )
+    date_to = serializers.DateTimeField(
+        required=False,
+        help_text="Filter logs to this date (YYYY-MM-DD HH:MM:SS)"
+    )
+    limit = serializers.IntegerField(
+        required=False,
+        min_value=1,
+        max_value=1000,
+        default=100,
+        help_text="Maximum number of results to return"
+    )

@@ -2,7 +2,9 @@ from rest_framework import viewsets, permissions, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Count, Q
-from ..models import Character, Rank, CharacterOwnership, Event, Raid, RaidAttendance, Item, LootDistribution
+from django.http import HttpResponse
+import csv
+from ..models import Character, Rank, CharacterOwnership, Event, Raid, RaidAttendance, Item, LootDistribution, LootAuditLog
 from .serializers import (
     CharacterListSerializer,
     CharacterDetailSerializer,
@@ -19,7 +21,10 @@ from .serializers import (
     LootDistributionListSerializer,
     LootDistributionDetailSerializer,
     DiscordLootAwardSerializer,
-    UserBalanceSerializer
+    UserBalanceSerializer,
+    LootAuditLogSerializer,
+    LootAuditLogListSerializer,
+    AuditLogFilterSerializer
 )
 
 
@@ -495,4 +500,174 @@ class LootDistributionViewSet(viewsets.ModelViewSet):
             'total_items': total_items,
             'total_cost': total_cost,
             'distributions': serializer.data
+        })
+
+
+class LootAuditLogViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet for viewing loot audit logs.
+    Read-only access for reviewing historical data.
+    Staff users get full access, regular users see limited data.
+    """
+    queryset = LootAuditLog.objects.select_related(
+        'performed_by', 'affected_user', 'item', 'distribution', 'raid'
+    )
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['description', 'character_name', 'item__name', 'raid__title']
+    ordering_fields = ['timestamp', 'action_type']
+    ordering = ['-timestamp']
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return LootAuditLogListSerializer
+        return LootAuditLogSerializer
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        # Non-staff users can only see logs that affect them
+        if not self.request.user.is_staff:
+            queryset = queryset.filter(
+                Q(performed_by=self.request.user) |
+                Q(affected_user=self.request.user)
+            )
+        
+        # Apply filters from query parameters
+        action_type = self.request.query_params.get('action_type', None)
+        if action_type:
+            queryset = queryset.filter(action_type=action_type)
+        
+        performed_by = self.request.query_params.get('performed_by', None)
+        if performed_by:
+            queryset = queryset.filter(performed_by__username__icontains=performed_by)
+        
+        affected_user = self.request.query_params.get('affected_user', None)
+        if affected_user:
+            if affected_user == 'me':
+                queryset = queryset.filter(affected_user=self.request.user)
+            else:
+                queryset = queryset.filter(affected_user__username__icontains=affected_user)
+        
+        character_name = self.request.query_params.get('character_name', None)
+        if character_name:
+            queryset = queryset.filter(character_name__icontains=character_name)
+        
+        item_name = self.request.query_params.get('item_name', None)
+        if item_name:
+            queryset = queryset.filter(item__name__icontains=item_name)
+        
+        # Date range filtering
+        date_from = self.request.query_params.get('date_from', None)
+        date_to = self.request.query_params.get('date_to', None)
+        if date_from:
+            queryset = queryset.filter(timestamp__gte=date_from)
+        if date_to:
+            queryset = queryset.filter(timestamp__lte=date_to)
+        
+        # Limit results for performance
+        limit = int(self.request.query_params.get('limit', 100))
+        limit = min(limit, 1000)  # Cap at 1000
+        
+        return queryset[:limit]
+    
+    @action(detail=False, methods=['get'])
+    def action_types(self, request):
+        """Get list of available action types for filtering."""
+        return Response([
+            {'value': choice[0], 'display': choice[1]}
+            for choice in LootAuditLog.ACTION_TYPES
+        ])
+    
+    @action(detail=False, methods=['get'])
+    def summary_stats(self, request):
+        """Get summary statistics for audit logs."""
+        queryset = self.get_queryset()
+        
+        # Count by action type
+        action_counts = {}
+        for action_type, display_name in LootAuditLog.ACTION_TYPES:
+            count = queryset.filter(action_type=action_type).count()
+            if count > 0:
+                action_counts[action_type] = {
+                    'display': display_name,
+                    'count': count
+                }
+        
+        # Recent activity (last 24 hours)
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        recent_cutoff = timezone.now() - timedelta(days=1)
+        recent_count = queryset.filter(timestamp__gte=recent_cutoff).count()
+        
+        return Response({
+            'total_logs': queryset.count(),
+            'recent_activity_24h': recent_count,
+            'action_type_counts': action_counts
+        })
+    
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAdminUser])
+    def export_csv(self, request):
+        """Export audit logs to CSV (admin only)."""
+        queryset = self.filter_queryset(self.get_queryset())
+        
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="loot_audit_export.csv"'
+        
+        writer = csv.writer(response)
+        writer.writerow([
+            'Timestamp', 'Action Type', 'Performed By', 'Affected User',
+            'Character Name', 'Item', 'Point Cost', 'Quantity', 'Description',
+            'Raid', 'IP Address'
+        ])
+        
+        for log in queryset:
+            writer.writerow([
+                log.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                log.get_action_type_display(),
+                log.performed_by.username if log.performed_by else 'System',
+                log.affected_user.username if log.affected_user else '',
+                log.character_name,
+                log.item.name if log.item else '',
+                log.point_cost or '',
+                log.quantity or '',
+                log.description,
+                log.raid.title if log.raid else '',
+                log.ip_address or ''
+            ])
+        
+        return response
+    
+    @action(detail=False, methods=['get'])
+    def user_activity(self, request):
+        """Get audit logs for the current user."""
+        user_logs = self.get_queryset().filter(
+            Q(performed_by=request.user) | Q(affected_user=request.user)
+        )[:50]  # Last 50 activities
+        
+        serializer = self.get_serializer(user_logs, many=True)
+        return Response({
+            'user': request.user.username,
+            'recent_activity': serializer.data
+        })
+    
+    @action(detail=False, methods=['get'])
+    def character_history(self, request):
+        """Get audit logs for a specific character."""
+        character_name = request.query_params.get('character', None)
+        if not character_name:
+            return Response(
+                {'error': 'character parameter is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        character_logs = self.get_queryset().filter(
+            character_name__iexact=character_name
+        )
+        
+        serializer = self.get_serializer(character_logs, many=True)
+        return Response({
+            'character_name': character_name,
+            'activity_history': serializer.data
         })

@@ -1,6 +1,6 @@
 # Task ID: 8
 # Title: Item and Loot Distribution API
-# Status: in-progress
+# Status: pending
 # Dependencies: 5
 # Priority: high
 # Description: Create item tracking and loot distribution system for Discord bot integration
