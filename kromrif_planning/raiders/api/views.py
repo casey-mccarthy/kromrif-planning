@@ -36,7 +36,7 @@ class CharacterViewSet(viewsets.ModelViewSet):
     ViewSet for managing characters.
     Users can only edit their own characters unless they are staff.
     """
-    queryset = Character.objects.select_related('user', 'main_character')
+    queryset = Character.objects.select_related('user')
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name', 'description', 'user__username']
@@ -59,12 +59,6 @@ class CharacterViewSet(viewsets.ModelViewSet):
             elif user_id:
                 queryset = queryset.filter(user_id=user_id)
         
-        # Filter by main/alt status
-        character_type = self.request.query_params.get('type', None)
-        if character_type == 'main':
-            queryset = queryset.filter(main_character__isnull=True)
-        elif character_type == 'alt':
-            queryset = queryset.filter(main_character__isnull=False)
         
         return queryset
     
@@ -87,13 +81,6 @@ class CharacterViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(characters, many=True)
         return Response(serializer.data)
     
-    @action(detail=True, methods=['get'])
-    def family(self, request, pk=None):
-        """Get the character family (main + all alts)."""
-        character = self.get_object()
-        family = character.get_character_family()
-        serializer = CharacterListSerializer(family, many=True)
-        return Response(serializer.data)
     
     @action(detail=False, methods=['post'], permission_classes=[permissions.IsAdminUser])
     def transfer(self, request):

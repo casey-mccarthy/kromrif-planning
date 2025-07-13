@@ -43,7 +43,7 @@
               hx-get="{% url 'raiders:character-list-htmx' %}"
               hx-trigger="change, keyup changed delay:300ms from:input[name='search']"
               hx-target="#character-list">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
                     <label for="id_search" class="block text-sm font-medium text-gray-700 mb-1">Search</label>
                     {{ search_form.search }}
@@ -51,10 +51,6 @@
                 <div>
                     <label for="id_character_class" class="block text-sm font-medium text-gray-700 mb-1">Class</label>
                     {{ search_form.character_class }}
-                </div>
-                <div>
-                    <label for="id_type" class="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                    {{ search_form.type }}
                 </div>
                 <div>
                     <label for="id_status" class="block text-sm font-medium text-gray-700 mb-1">Status</label>

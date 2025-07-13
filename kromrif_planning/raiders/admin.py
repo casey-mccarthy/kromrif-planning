@@ -42,19 +42,14 @@ class RankAdmin(admin.ModelAdmin):
 
 @admin.register(Character)
 class CharacterAdmin(admin.ModelAdmin):
-    list_display = ['name', 'character_class', 'level', 'status', 'user', 'character_type', 'is_active', 'created_at']
-    list_filter = ['character_class', 'status', 'is_active', 'level', 'created_at', 'main_character']
+    list_display = ['name', 'character_class', 'level', 'status', 'user', 'is_active', 'created_at']
+    list_filter = ['character_class', 'status', 'is_active', 'level', 'created_at']
     search_fields = ['name', 'user__username', 'user__email', 'description']
-    autocomplete_fields = ['main_character']
     ordering = ['name']
     
     fieldsets = (
         (None, {
             'fields': ('name', 'character_class', 'level', 'status', 'user')
-        }),
-        ('Character Relationship', {
-            'fields': ('main_character',),
-            'description': 'Leave empty if this is a main character'
         }),
         ('Details', {
             'fields': ('description', 'is_active'),
@@ -70,17 +65,8 @@ class CharacterAdmin(admin.ModelAdmin):
     
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        return qs.select_related('user', 'main_character')
+        return qs.select_related('user')
     
-    def character_type(self, obj):
-        if obj.is_main:
-            alt_count = obj.alt_characters.count()
-            if alt_count > 0:
-                return format_html('<span style="color: green;">Main ({} alts)</span>', alt_count)
-            return format_html('<span style="color: green;">Main</span>')
-        else:
-            return format_html('<span style="color: gray;">Alt of {}</span>', obj.main_character.name)
-    character_type.short_description = 'Type'
 
 
 @admin.register(CharacterOwnership)

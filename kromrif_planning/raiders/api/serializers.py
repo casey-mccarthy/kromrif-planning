@@ -25,20 +25,13 @@ class RankSerializer(serializers.ModelSerializer):
 
 class CharacterListSerializer(serializers.ModelSerializer):
     user = serializers.StringRelatedField()
-    character_type = serializers.SerializerMethodField()
     
     class Meta:
         model = Character
         fields = [
             'id', 'name', 'character_class', 'level', 'status',
-            'user', 'character_type', 'is_active', 'created_at'
+            'user', 'is_active', 'created_at'
         ]
-    
-    def get_character_type(self, obj):
-        if obj.is_main:
-            alt_count = obj.alt_characters.count()
-            return f"Main ({alt_count} alts)" if alt_count > 0 else "Main"
-        return f"Alt of {obj.main_character.name}"
 
 
 class CharacterDetailSerializer(serializers.ModelSerializer):
@@ -46,20 +39,13 @@ class CharacterDetailSerializer(serializers.ModelSerializer):
         queryset=User.objects.all(),
         default=serializers.CurrentUserDefault()
     )
-    main_character = serializers.PrimaryKeyRelatedField(
-        queryset=Character.objects.all(),
-        required=False,
-        allow_null=True
-    )
-    alt_characters = CharacterListSerializer(many=True, read_only=True)
     ownership_history = serializers.SerializerMethodField()
     
     class Meta:
         model = Character
         fields = [
             'id', 'name', 'character_class', 'level', 'status',
-            'user', 'main_character', 'alt_characters',
-            'description', 'is_active', 'ownership_history',
+            'user', 'description', 'is_active', 'ownership_history',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at']
@@ -67,11 +53,6 @@ class CharacterDetailSerializer(serializers.ModelSerializer):
     def get_ownership_history(self, obj):
         history = obj.ownership_history.all()[:5]  # Last 5 transfers
         return CharacterOwnershipSerializer(history, many=True).data
-    
-    def validate_main_character(self, value):
-        if value and value == self.instance:
-            raise serializers.ValidationError("A character cannot be its own main character.")
-        return value
     
     def create(self, validated_data):
         character = super().create(validated_data)

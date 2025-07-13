@@ -25,7 +25,7 @@ class CharacterListView(LoginRequiredMixin, ListView):
     paginate_by = 20
     
     def get_queryset(self):
-        queryset = Character.objects.select_related('user', 'main_character')
+        queryset = Character.objects.select_related('user')
         
         # Apply search filter
         search_query = self.request.GET.get('search', '')
@@ -42,11 +42,6 @@ class CharacterListView(LoginRequiredMixin, ListView):
         if character_class:
             queryset = queryset.filter(character_class=character_class)
         
-        character_type = self.request.GET.get('type', '')
-        if character_type == 'main':
-            queryset = queryset.filter(main_character__isnull=True)
-        elif character_type == 'alt':
-            queryset = queryset.filter(main_character__isnull=False)
         
         status = self.request.GET.get('status', '')
         if status:
@@ -66,7 +61,6 @@ class CharacterListView(LoginRequiredMixin, ListView):
         context['current_filters'] = {
             'search': self.request.GET.get('search', ''),
             'character_class': self.request.GET.get('character_class', ''),
-            'type': self.request.GET.get('type', ''),
             'status': self.request.GET.get('status', ''),
             'ordering': self.request.GET.get('ordering', 'name'),
         }
@@ -78,7 +72,7 @@ class CharacterListHTMXView(LoginRequiredMixin, View):
     
     def get(self, request):
         # Use the same logic as CharacterListView
-        queryset = Character.objects.select_related('user', 'main_character')
+        queryset = Character.objects.select_related('user')
         
         # Apply search filter
         search_query = request.GET.get('search', '')
@@ -95,11 +89,6 @@ class CharacterListHTMXView(LoginRequiredMixin, View):
         if character_class:
             queryset = queryset.filter(character_class=character_class)
         
-        character_type = request.GET.get('type', '')
-        if character_type == 'main':
-            queryset = queryset.filter(main_character__isnull=True)
-        elif character_type == 'alt':
-            queryset = queryset.filter(main_character__isnull=False)
         
         status = request.GET.get('status', '')
         if status:
@@ -128,12 +117,11 @@ class CharacterDetailView(LoginRequiredMixin, DetailView):
     context_object_name = 'character'
     
     def get_queryset(self):
-        return Character.objects.select_related('user', 'main_character')
+        return Character.objects.select_related('user')
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         character = self.get_object()
-        context['character_family'] = character.get_character_family()
         context['ownership_history'] = character.ownership_history.select_related(
             'previous_owner', 'new_owner', 'transferred_by'
         )[:10]  # Show last 10 transfers
@@ -217,7 +205,7 @@ class CharacterEditView(LoginRequiredMixin, UpdateView):
     template_name = 'raiders/character_form.html'
     
     def get_queryset(self):
-        queryset = Character.objects.select_related('user', 'main_character')
+        queryset = Character.objects.select_related('user')
         if not self.request.user.is_staff:
             queryset = queryset.filter(user=self.request.user)
         return queryset
@@ -240,7 +228,7 @@ class CharacterEditHTMXView(LoginRequiredMixin, View):
     
     def get_object(self):
         pk = self.kwargs.get('pk')
-        queryset = Character.objects.select_related('user', 'main_character')
+        queryset = Character.objects.select_related('user')
         if not self.request.user.is_staff:
             queryset = queryset.filter(user=self.request.user)
         return get_object_or_404(queryset, pk=pk)
@@ -280,7 +268,7 @@ class CharacterDeleteView(LoginRequiredMixin, DeleteView):
     success_url = reverse_lazy('raiders:character-list')
     
     def get_queryset(self):
-        queryset = Character.objects.select_related('user', 'main_character')
+        queryset = Character.objects.select_related('user')
         if not self.request.user.is_staff:
             queryset = queryset.filter(user=self.request.user)
         return queryset
@@ -296,7 +284,7 @@ class CharacterDeleteHTMXView(LoginRequiredMixin, View):
     
     def get_object(self):
         pk = self.kwargs.get('pk')
-        queryset = Character.objects.select_related('user', 'main_character')
+        queryset = Character.objects.select_related('user')
         if not self.request.user.is_staff:
             queryset = queryset.filter(user=self.request.user)
         return get_object_or_404(queryset, pk=pk)
@@ -369,8 +357,6 @@ class GuildRosterView(LoginRequiredMixin, TemplateView):
         # Get character counts
         character_counts = {
             'total': Character.objects.count(),
-            'main': Character.objects.filter(main_character__isnull=True).count(),
-            'alt': Character.objects.filter(main_character__isnull=False).count(),
             'active': Character.objects.filter(status='active').count(),
         }
         
@@ -410,8 +396,6 @@ class GuildRosterHTMXView(LoginRequiredMixin, View):
         
         character_counts = {
             'total': Character.objects.count(),
-            'main': Character.objects.filter(main_character__isnull=True).count(),
-            'alt': Character.objects.filter(main_character__isnull=False).count(),
             'active': Character.objects.filter(status='active').count(),
         }
         

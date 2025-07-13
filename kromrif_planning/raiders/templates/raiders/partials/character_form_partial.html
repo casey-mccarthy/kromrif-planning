@@ -47,18 +47,6 @@
         </div>
     </div>
     
-    <div>
-        <label for="{{ form.main_character.id_for_label }}" class="block text-sm font-medium text-gray-700">
-            Main Character
-        </label>
-        {{ form.main_character }}
-        {% if form.main_character.errors %}
-            <p class="mt-1 text-sm text-red-600">{{ form.main_character.errors.0 }}</p>
-        {% endif %}
-        <p class="mt-1 text-sm text-gray-500">
-            Leave blank if this is a main character
-        </p>
-    </div>
     
     <div>
         <label for="{{ form.description.id_for_label }}" class="block text-sm font-medium text-gray-700">

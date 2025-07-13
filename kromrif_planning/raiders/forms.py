@@ -10,7 +10,7 @@ class CharacterForm(forms.ModelForm):
     
     class Meta:
         model = Character
-        fields = ['name', 'character_class', 'level', 'status', 'main_character', 'description']
+        fields = ['name', 'character_class', 'level', 'status', 'description']
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': 'form-input w-full',
@@ -28,9 +28,6 @@ class CharacterForm(forms.ModelForm):
             'status': forms.Select(attrs={
                 'class': 'form-select w-full'
             }),
-            'main_character': forms.Select(attrs={
-                'class': 'form-select w-full'
-            }),
             'description': forms.Textarea(attrs={
                 'class': 'form-textarea w-full',
                 'rows': 3,
@@ -41,24 +38,6 @@ class CharacterForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
-        
-        # Set up main character choices (only main characters of the current user)
-        if user:
-            self.fields['main_character'].queryset = Character.objects.filter(
-                user=user,
-                main_character__isnull=True
-            )
-        elif self.instance.pk:
-            # For editing, show main characters of the same user
-            self.fields['main_character'].queryset = Character.objects.filter(
-                user=self.instance.user,
-                main_character__isnull=True
-            ).exclude(pk=self.instance.pk)
-        else:
-            self.fields['main_character'].queryset = Character.objects.none()
-        
-        # Add empty choice for main character
-        self.fields['main_character'].empty_label = "Main Character (no alt relationship)"
         
     
     def clean_name(self):
@@ -79,23 +58,6 @@ class CharacterForm(forms.ModelForm):
             raise forms.ValidationError('Level must be between 1 and 70.')
         return level
     
-    def clean_main_character(self):
-        main_character = self.cleaned_data.get('main_character')
-        
-        # If this is an edit and the character is currently a main character
-        if self.instance.pk and self.instance.is_main and main_character:
-            # Check if any characters are alts of this character
-            if self.instance.alt_characters.exists():
-                raise forms.ValidationError(
-                    'Cannot set this character as an alt because it currently has alt characters. '
-                    'Please reassign those alts first.'
-                )
-        
-        # Cannot set self as main character
-        if main_character and self.instance.pk and main_character.pk == self.instance.pk:
-            raise forms.ValidationError('A character cannot be its own main character.')
-        
-        return main_character
 
 
 class CharacterSearchForm(forms.Form):
@@ -120,19 +82,6 @@ class CharacterSearchForm(forms.Form):
         })
     )
     
-    TYPE_CHOICES = [
-        ('', 'All Characters'),
-        ('main', 'Main Characters'),
-        ('alt', 'Alt Characters'),
-    ]
-    
-    type = forms.ChoiceField(
-        choices=TYPE_CHOICES,
-        required=False,
-        widget=forms.Select(attrs={
-            'class': 'form-select w-full'
-        })
-    )
     
     status = forms.ChoiceField(
         choices=[('', 'All Statuses')] + Character.STATUS_CHOICES,

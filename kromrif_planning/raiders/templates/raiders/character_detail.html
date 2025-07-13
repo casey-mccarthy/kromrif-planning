@@ -102,20 +102,6 @@
                             </dd>
                         </div>
                         <div>
-                            <dt class="text-sm font-medium text-gray-500">Character Type</dt>
-                            <dd class="mt-1">
-                                {% if character.is_main %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                        Main Character
-                                    </span>
-                                {% else %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                        Alt of {{ character.main_character.name }}
-                                    </span>
-                                {% endif %}
-                            </dd>
-                        </div>
-                        <div>
                             <dt class="text-sm font-medium text-gray-500">Created</dt>
                             <dd class="mt-1 text-sm text-gray-900">{{ character.created_at|date:"M d, Y" }}</dd>
                         </div>
@@ -129,51 +115,6 @@
                 </div>
             </div>
 
-            <!-- Character Family -->
-            {% if character_family|length > 1 %}
-                <div class="bg-white shadow rounded-lg mt-6">
-                    <div class="px-6 py-4 border-b border-gray-200">
-                        <h2 class="text-lg font-medium text-gray-900">Character Family</h2>
-                        <p class="text-sm text-gray-600">Related characters (main + alts)</p>
-                    </div>
-                    <div class="px-6 py-4">
-                        <div class="grid grid-cols-1 gap-4">
-                            {% for family_char in character_family %}
-                                <div class="flex items-center justify-between p-3 border rounded-lg {% if family_char.pk == character.pk %}bg-blue-50 border-blue-200{% else %}bg-gray-50{% endif %}">
-                                    <div class="flex items-center">
-                                        <div class="h-8 w-8 rounded-full bg-indigo-500 flex items-center justify-center">
-                                            <span class="text-white text-sm font-medium">{{ family_char.name|first|upper }}</span>
-                                        </div>
-                                        <div class="ml-3">
-                                            <h3 class="text-sm font-medium text-gray-900">
-                                                {% if family_char.pk == character.pk %}
-                                                    {{ family_char.name }} (current)
-                                                {% else %}
-                                                    <a href="{% url 'raiders:character-detail' family_char.pk %}" class="text-indigo-600 hover:text-indigo-900">
-                                                        {{ family_char.name }}
-                                                    </a>
-                                                {% endif %}
-                                            </h3>
-                                            <p class="text-sm text-gray-500">{{ family_char.character_class }} • Level {{ family_char.level }}</p>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        {% if family_char.is_main %}
-                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                Main
-                                            </span>
-                                        {% else %}
-                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                                Alt
-                                            </span>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                </div>
-            {% endif %}
         </div>
 
         <!-- Sidebar -->
@@ -185,14 +126,6 @@
                 </div>
                 <div class="px-6 py-4">
                     <div class="space-y-4">
-                        <div class="flex justify-between">
-                            <span class="text-sm text-gray-500">Alt Characters</span>
-                            <span class="text-sm font-medium text-gray-900">{{ character.get_all_alts.count }}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-sm text-gray-500">Total Family</span>
-                            <span class="text-sm font-medium text-gray-900">{{ character_family|length }}</span>
-                        </div>
                         <div class="flex justify-between">
                             <span class="text-sm text-gray-500">Ownership Changes</span>
                             <span class="text-sm font-medium text-gray-900">{{ ownership_history|length }}</span>

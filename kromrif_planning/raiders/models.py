@@ -76,7 +76,6 @@ class Character(models.Model):
         ('active', 'Active'),
         ('inactive', 'Inactive'),
         ('retired', 'Retired'),
-        ('alt', 'Alt'),
     ]
     
     status = models.CharField(
@@ -91,16 +90,6 @@ class Character(models.Model):
         on_delete=models.CASCADE,
         related_name='characters',
         help_text="The user who owns this character"
-    )
-    
-    
-    main_character = models.ForeignKey(
-        'self',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='alt_characters',
-        help_text="Main character (if this is an alt)"
     )
     
     description = models.TextField(
@@ -139,36 +128,6 @@ class Character(models.Model):
             self.name = self.name.strip().title()
         super().save(*args, **kwargs)
     
-    @property
-    def is_main(self):
-        """Check if this character is a main character (not an alt)"""
-        return self.main_character is None
-    
-    @property
-    def is_alt(self):
-        """Check if this character is an alt"""
-        return self.main_character is not None
-    
-    def get_main_character(self):
-        """Get the main character for this character (returns self if main)"""
-        if self.is_main:
-            return self
-        return self.main_character
-    
-    def get_all_alts(self):
-        """Get all alt characters for this character (only works for main characters)"""
-        if self.is_main:
-            return self.alt_characters.all()
-        return Character.objects.none()
-    
-    def get_character_family(self):
-        """Get all related characters (main + alts)"""
-        main = self.get_main_character()
-        if main:
-            return Character.objects.filter(
-                models.Q(id=main.id) | models.Q(main_character=main)
-            ).order_by('name')
-        return Character.objects.filter(id=self.id)
 
 
 class CharacterOwnership(models.Model):
