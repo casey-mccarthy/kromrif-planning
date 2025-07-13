@@ -1,6 +1,8 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import Character, Rank, CharacterOwnership, Event, Raid, RaidAttendance, Item, LootDistribution
+from django.http import HttpResponse
+import csv
+from .models import Character, Rank, CharacterOwnership, Event, Raid, RaidAttendance, Item, LootDistribution, LootAuditLog
 
 
 @admin.register(Rank)
@@ -437,3 +439,161 @@ class LootDistributionAdmin(admin.ModelAdmin):
             )
     
     recalculate_point_deductions.short_description = 'Recalculate point deductions'
+
+
+@admin.register(LootAuditLog)
+class LootAuditLogAdmin(admin.ModelAdmin):
+    list_display = [
+        'timestamp', 'action_type_display', 'performed_by', 'affected_user_display', 
+        'item_info', 'summary_display', 'ip_address'
+    ]
+    list_filter = [
+        'action_type', 'timestamp', 'performed_by', 'affected_user',
+        'item__rarity', 'raid__event'
+    ]
+    search_fields = [
+        'description', 'character_name', 'performed_by__username', 
+        'affected_user__username', 'item__name', 'raid__title'
+    ]
+    date_hierarchy = 'timestamp'
+    ordering = ['-timestamp']
+    
+    fieldsets = (
+        ('Action Details', {
+            'fields': ('action_type', 'timestamp', 'description')
+        }),
+        ('Users', {
+            'fields': ('performed_by', 'affected_user', 'character_name')
+        }),
+        ('Related Objects', {
+            'fields': ('item', 'distribution', 'raid')
+        }),
+        ('Transaction Details', {
+            'fields': ('point_cost', 'quantity'),
+            'classes': ('collapse',)
+        }),
+        ('Change History', {
+            'fields': ('old_values', 'new_values'),
+            'classes': ('collapse',)
+        }),
+        ('System Context', {
+            'fields': ('ip_address', 'user_agent', 'request_id', 'discord_context'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    readonly_fields = [
+        'timestamp', 'action_type', 'performed_by', 'affected_user', 'item',
+        'distribution', 'raid', 'description', 'character_name', 'point_cost',
+        'quantity', 'old_values', 'new_values', 'ip_address', 'user_agent',
+        'discord_context', 'request_id'
+    ]
+    
+    def has_add_permission(self, request):
+        """Prevent manual creation of audit logs"""
+        return False
+    
+    def has_change_permission(self, request, obj=None):
+        """Prevent modification of audit logs"""
+        return False
+    
+    def has_delete_permission(self, request, obj=None):
+        """Allow deletion only for superusers"""
+        return request.user.is_superuser
+    
+    def action_type_display(self, obj):
+        colors = {
+            'item_created': '#28a745',      # green
+            'item_updated': '#007bff',      # blue
+            'item_deleted': '#dc3545',      # red
+            'item_activated': '#28a745',    # green
+            'item_deactivated': '#6c757d',  # gray
+            'distribution_created': '#17a2b8',  # teal
+            'distribution_updated': '#007bff',  # blue
+            'distribution_deleted': '#dc3545',  # red
+            'distribution_refunded': '#ffc107', # yellow
+            'points_deducted': '#dc3545',   # red
+            'points_refunded': '#28a745',   # green
+            'admin_action': '#6f42c1',      # purple
+            'system_action': '#6c757d',     # gray
+        }
+        color = colors.get(obj.action_type, '#000000')
+        return format_html(
+            '<span style="color: {}; font-weight: bold;">{}</span>',
+            color,
+            obj.get_action_type_display()
+        )
+    action_type_display.short_description = 'Action'
+    action_type_display.admin_order_field = 'action_type'
+    
+    def affected_user_display(self, obj):
+        if obj.affected_user:
+            if obj.character_name:
+                return format_html(
+                    '{}<br><small style="color: #666;">{}</small>',
+                    obj.affected_user.username,
+                    obj.character_name
+                )
+            return obj.affected_user.username
+        return obj.character_name or '-'
+    affected_user_display.short_description = 'Affected User'
+    
+    def item_info(self, obj):
+        if obj.item:
+            return format_html(
+                '<strong>{}</strong><br><small style="color: #666;">{}</small>',
+                obj.item.name,
+                obj.item.get_rarity_display()
+            )
+        return '-'
+    item_info.short_description = 'Item'
+    
+    def summary_display(self, obj):
+        summary = obj.get_summary()
+        if len(summary) > 50:
+            return format_html(
+                '<span title="{}">{}</span>',
+                summary,
+                summary[:47] + '...'
+            )
+        return summary
+    summary_display.short_description = 'Summary'
+    
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.select_related(
+            'performed_by', 'affected_user', 'item', 'distribution', 'raid'
+        )
+    
+    actions = ['export_audit_logs_csv']
+    
+    def export_audit_logs_csv(self, request, queryset):
+        """Export selected audit logs to CSV"""
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="loot_audit_logs.csv"'
+        
+        writer = csv.writer(response)
+        writer.writerow([
+            'Timestamp', 'Action Type', 'Performed By', 'Affected User',
+            'Character Name', 'Item', 'Point Cost', 'Quantity', 'Description',
+            'Raid', 'IP Address'
+        ])
+        
+        for log in queryset:
+            writer.writerow([
+                log.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                log.get_action_type_display(),
+                log.performed_by.username if log.performed_by else 'System',
+                log.affected_user.username if log.affected_user else '',
+                log.character_name,
+                log.item.name if log.item else '',
+                log.point_cost or '',
+                log.quantity or '',
+                log.description,
+                log.raid.title if log.raid else '',
+                log.ip_address or ''
+            ])
+        
+        return response
+    
+    export_audit_logs_csv.short_description = 'Export selected audit logs to CSV'

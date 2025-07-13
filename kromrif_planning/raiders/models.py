@@ -821,3 +821,234 @@ class LootDistribution(models.Model):
         )
         
         return distribution
+
+
+class LootAuditLog(models.Model):
+    """
+    Comprehensive audit trail for all loot-related actions.
+    Tracks creation, modification, and deletion of items and distributions.
+    """
+    
+    ACTION_TYPES = [
+        ('item_created', 'Item Created'),
+        ('item_updated', 'Item Updated'),
+        ('item_deleted', 'Item Deleted'),
+        ('item_activated', 'Item Activated'),
+        ('item_deactivated', 'Item Deactivated'),
+        ('distribution_created', 'Loot Distribution Created'),
+        ('distribution_updated', 'Loot Distribution Updated'),
+        ('distribution_deleted', 'Loot Distribution Deleted'),
+        ('distribution_refunded', 'Loot Distribution Refunded'),
+        ('points_deducted', 'DKP Points Deducted'),
+        ('points_refunded', 'DKP Points Refunded'),
+        ('admin_action', 'Administrative Action'),
+        ('system_action', 'System Action'),
+    ]
+    
+    # Core audit fields
+    action_type = models.CharField(
+        max_length=25,
+        choices=ACTION_TYPES,
+        help_text="Type of action performed"
+    )
+    
+    timestamp = models.DateTimeField(
+        auto_now_add=True,
+        help_text="When the action occurred"
+    )
+    
+    # User information
+    performed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='loot_audit_actions',
+        help_text="User who performed the action"
+    )
+    
+    affected_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='loot_audit_affected',
+        help_text="User affected by the action (recipient of loot, etc.)"
+    )
+    
+    # Related objects (optional, for linking to specific records)
+    item = models.ForeignKey(
+        Item,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='audit_logs',
+        help_text="Related item (if applicable)"
+    )
+    
+    distribution = models.ForeignKey(
+        LootDistribution,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='audit_logs',
+        help_text="Related loot distribution (if applicable)"
+    )
+    
+    raid = models.ForeignKey(
+        Raid,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='loot_audit_logs',
+        help_text="Related raid (if applicable)"
+    )
+    
+    # Detailed information
+    description = models.TextField(
+        help_text="Detailed description of the action"
+    )
+    
+    # Snapshot data for historical accuracy
+    character_name = models.CharField(
+        max_length=64,
+        blank=True,
+        help_text="Character name at time of action"
+    )
+    
+    point_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="DKP cost involved in the action (if applicable)"
+    )
+    
+    quantity = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Quantity of items involved (if applicable)"
+    )
+    
+    # Before/after state for changes
+    old_values = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Previous values before the change (JSON format)"
+    )
+    
+    new_values = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="New values after the change (JSON format)"
+    )
+    
+    # Additional context
+    ip_address = models.GenericIPAddressField(
+        null=True,
+        blank=True,
+        help_text="IP address from which the action was performed"
+    )
+    
+    user_agent = models.TextField(
+        blank=True,
+        help_text="User agent string for web-based actions"
+    )
+    
+    # Discord integration tracking
+    discord_context = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Discord-related context (message ID, channel, etc.)"
+    )
+    
+    # System metadata
+    request_id = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Request ID for tracking related actions"
+    )
+    
+    class Meta:
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['action_type', '-timestamp']),
+            models.Index(fields=['performed_by', '-timestamp']),
+            models.Index(fields=['affected_user', '-timestamp']),
+            models.Index(fields=['item', '-timestamp']),
+            models.Index(fields=['distribution', '-timestamp']),
+            models.Index(fields=['raid', '-timestamp']),
+            models.Index(fields=['character_name', '-timestamp']),
+            models.Index(fields=['-timestamp']),
+        ]
+        verbose_name = "Loot Audit Log"
+        verbose_name_plural = "Loot Audit Logs"
+    
+    def __str__(self):
+        action_display = self.get_action_type_display()
+        user_info = f"by {self.performed_by.username}" if self.performed_by else "by System"
+        if self.affected_user and self.affected_user != self.performed_by:
+            user_info += f" (affecting {self.affected_user.username})"
+        return f"{action_display} {user_info} at {self.timestamp.strftime('%Y-%m-%d %H:%M:%S')}"
+    
+    def get_summary(self):
+        """Get a concise summary of the audit log entry"""
+        summary_parts = []
+        
+        if self.item:
+            summary_parts.append(f"Item: {self.item.name}")
+        
+        if self.character_name:
+            summary_parts.append(f"Character: {self.character_name}")
+        
+        if self.point_cost:
+            cost_text = f"{self.point_cost} DKP"
+            if self.quantity and self.quantity > 1:
+                cost_text += f" (x{self.quantity})"
+            summary_parts.append(f"Cost: {cost_text}")
+        
+        if self.raid:
+            summary_parts.append(f"Raid: {self.raid.title}")
+        
+        return " | ".join(summary_parts) if summary_parts else "N/A"
+    
+    @classmethod
+    def log_item_action(cls, action_type, item, performed_by=None, description="", old_values=None, new_values=None, **kwargs):
+        """Helper method to log item-related actions"""
+        return cls.objects.create(
+            action_type=action_type,
+            item=item,
+            performed_by=performed_by,
+            description=description,
+            old_values=old_values or {},
+            new_values=new_values or {},
+            **kwargs
+        )
+    
+    @classmethod
+    def log_distribution_action(cls, action_type, distribution, performed_by=None, description="", **kwargs):
+        """Helper method to log distribution-related actions"""
+        return cls.objects.create(
+            action_type=action_type,
+            distribution=distribution,
+            item=distribution.item,
+            affected_user=distribution.user,
+            character_name=distribution.character_name,
+            point_cost=distribution.point_cost,
+            quantity=distribution.quantity,
+            raid=distribution.raid,
+            performed_by=performed_by,
+            description=description,
+            **kwargs
+        )
+    
+    @classmethod
+    def log_admin_action(cls, description, performed_by, affected_user=None, **kwargs):
+        """Helper method to log administrative actions"""
+        return cls.objects.create(
+            action_type='admin_action',
+            performed_by=performed_by,
+            affected_user=affected_user,
+            description=description,
+            **kwargs
+        )
