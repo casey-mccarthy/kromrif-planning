@@ -1,7 +1,8 @@
 from rest_framework.routers import DefaultRouter
 from .views import (
     CharacterViewSet, RankViewSet, CharacterOwnershipViewSet,
-    EventViewSet, RaidViewSet, RaidAttendanceViewSet
+    EventViewSet, RaidViewSet, RaidAttendanceViewSet,
+    ItemViewSet, LootDistributionViewSet
 )
 
 app_name = 'raiders-api'
@@ -13,5 +14,7 @@ router.register(r'ownership-history', CharacterOwnershipViewSet, basename='owner
 router.register(r'events', EventViewSet, basename='event')
 router.register(r'raids', RaidViewSet, basename='raid')
 router.register(r'attendance', RaidAttendanceViewSet, basename='attendance')
+router.register(r'items', ItemViewSet, basename='item')
+router.register(r'loot-distributions', LootDistributionViewSet, basename='loot-distribution')
 
 urlpatterns = router.urls

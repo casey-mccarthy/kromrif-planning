@@ -567,3 +567,258 @@ class RaidAttendance(models.Model):
                 results['errors'].append(f"Error processing '{char_name}': {str(e)}")
         
         return results
+
+
+class Item(models.Model):
+    """
+    Represents an item that can be distributed during raids.
+    """
+    name = models.CharField(
+        max_length=100,
+        unique=True,
+        help_text="Name of the item"
+    )
+    
+    description = models.TextField(
+        blank=True,
+        help_text="Description of the item"
+    )
+    
+    suggested_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Suggested DKP cost for this item"
+    )
+    
+    RARITY_CHOICES = [
+        ('common', 'Common'),
+        ('uncommon', 'Uncommon'),
+        ('rare', 'Rare'),
+        ('epic', 'Epic'),
+        ('legendary', 'Legendary'),
+    ]
+    
+    rarity = models.CharField(
+        max_length=20,
+        choices=RARITY_CHOICES,
+        default='common',
+        help_text="Rarity of the item"
+    )
+    
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Whether this item is currently active for distribution"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['name']
+        indexes = [
+            models.Index(fields=['rarity', 'is_active']),
+            models.Index(fields=['suggested_cost']),
+        ]
+    
+    def __str__(self):
+        return f"{self.name} ({self.get_rarity_display()})"
+    
+    def clean(self):
+        if self.name:
+            self.name = self.name.strip()
+    
+    def get_recent_distributions(self, limit=10):
+        """Get recent distributions of this item"""
+        return self.distributions.select_related('user', 'character', 'raid').order_by('-distributed_at')[:limit]
+    
+    def get_average_cost(self):
+        """Get the average cost this item was distributed for"""
+        from django.db.models import Avg
+        result = self.distributions.aggregate(avg_cost=Avg('point_cost'))
+        return result['avg_cost'] or Decimal('0.00')
+
+
+class LootDistribution(models.Model):
+    """
+    Tracks the distribution of items to players with DKP costs.
+    """
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='loot_received',
+        help_text="The user who received the item"
+    )
+    
+    item = models.ForeignKey(
+        Item,
+        on_delete=models.CASCADE,
+        related_name='distributions',
+        help_text="The item that was distributed"
+    )
+    
+    raid = models.ForeignKey(
+        Raid,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='loot_distributions',
+        help_text="The raid where this item was distributed"
+    )
+    
+    character_name = models.CharField(
+        max_length=64,
+        help_text="Character name at time of distribution"
+    )
+    
+    point_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text="DKP points spent on this item"
+    )
+    
+    quantity = models.PositiveIntegerField(
+        default=1,
+        help_text="Quantity of items distributed"
+    )
+    
+    notes = models.TextField(
+        blank=True,
+        help_text="Additional notes about the distribution"
+    )
+    
+    distributed_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="When the item was distributed"
+    )
+    
+    distributed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='loot_distributed',
+        help_text="Who distributed this item"
+    )
+    
+    # Discord integration fields
+    discord_message_id = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Discord message ID for reference"
+    )
+    
+    discord_channel_id = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Discord channel ID where distribution was announced"
+    )
+    
+    class Meta:
+        ordering = ['-distributed_at']
+        indexes = [
+            models.Index(fields=['user', '-distributed_at']),
+            models.Index(fields=['item', '-distributed_at']),
+            models.Index(fields=['raid', '-distributed_at']),
+            models.Index(fields=['character_name']),
+        ]
+        verbose_name = "Loot Distribution"
+        verbose_name_plural = "Loot Distributions"
+    
+    def __str__(self):
+        return f"{self.item.name} → {self.character_name} ({self.point_cost} DKP)"
+    
+    def clean(self):
+        # Validate character belongs to user
+        if self.character_name and self.user:
+            user_characters = self.user.characters.filter(name__iexact=self.character_name)
+            if not user_characters.exists():
+                raise ValidationError(
+                    f"Character '{self.character_name}' does not belong to user '{self.user.username}'"
+                )
+        
+        # Validate point cost is not negative
+        if self.point_cost < 0:
+            raise ValidationError("Point cost cannot be negative")
+    
+    def save(self, *args, **kwargs):
+        # Set character name from user's main character if not provided
+        if not self.character_name and self.user:
+            main_char = self.user.characters.filter(is_active=True).first()
+            if main_char:
+                self.character_name = main_char.name
+        
+        self.clean()
+        
+        # Check if user can afford the item
+        from ..dkp.models import DKPManager
+        if self.pk is None:  # New distribution
+            current_balance = DKPManager.get_user_balance(self.user)
+            total_cost = self.point_cost * self.quantity
+            if current_balance < total_cost:
+                raise ValidationError(
+                    f"Insufficient DKP. Current balance: {current_balance}, "
+                    f"Total cost: {total_cost}"
+                )
+        
+        super().save(*args, **kwargs)
+    
+    def process_point_deduction(self, created_by=None):
+        """
+        Process the DKP point deduction for this loot distribution.
+        Returns the created PointAdjustment record.
+        """
+        from ..dkp.models import DKPManager
+        
+        total_cost = self.point_cost * self.quantity
+        description = f"Loot: {self.item.name}"
+        if self.quantity > 1:
+            description += f" (x{self.quantity})"
+        
+        return DKPManager.deduct_points(
+            user=self.user,
+            points=total_cost,
+            adjustment_type='item_purchase',
+            description=description,
+            character_name=self.character_name,
+            created_by=created_by
+        )
+    
+    @classmethod
+    def distribute_item(cls, user, item, point_cost, character_name=None, raid=None, 
+                       quantity=1, notes='', distributed_by=None, discord_context=None):
+        """
+        Distribute an item to a user and automatically deduct DKP points.
+        
+        Args:
+            user: User receiving the item
+            item: Item being distributed
+            point_cost: DKP cost per item
+            character_name: Character name (optional, will use main char if not provided)
+            raid: Raid where item was distributed (optional)
+            quantity: Number of items (default 1)
+            notes: Additional notes
+            distributed_by: User distributing the item
+            discord_context: Dict with discord_message_id and discord_channel_id
+            
+        Returns:
+            LootDistribution: The created distribution record
+        """
+        # Create the distribution record
+        distribution = cls.objects.create(
+            user=user,
+            item=item,
+            raid=raid,
+            character_name=character_name,
+            point_cost=point_cost,
+            quantity=quantity,
+            notes=notes,
+            distributed_by=distributed_by,
+            discord_message_id=discord_context.get('message_id', '') if discord_context else '',
+            discord_channel_id=discord_context.get('channel_id', '') if discord_context else ''
+        )
+        
+        # Process point deduction
+        distribution.process_point_deduction(created_by=distributed_by)
+        
+        return distribution

@@ -2,7 +2,7 @@ from rest_framework import viewsets, permissions, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Count, Q
-from ..models import Character, Rank, CharacterOwnership, Event, Raid, RaidAttendance
+from ..models import Character, Rank, CharacterOwnership, Event, Raid, RaidAttendance, Item, LootDistribution
 from .serializers import (
     CharacterListSerializer,
     CharacterDetailSerializer,
@@ -14,7 +14,12 @@ from .serializers import (
     RaidDetailSerializer,
     RaidAttendanceSerializer,
     BulkAttendanceSerializer,
-    AwardPointsSerializer
+    AwardPointsSerializer,
+    ItemSerializer,
+    LootDistributionListSerializer,
+    LootDistributionDetailSerializer,
+    DiscordLootAwardSerializer,
+    UserBalanceSerializer
 )
 
 
@@ -311,3 +316,183 @@ class RaidAttendanceViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         serializer.save(recorded_by=self.request.user)
+
+
+class ItemViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing items.
+    Staff users can create/update/delete items.
+    """
+    queryset = Item.objects.all()
+    serializer_class = ItemSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['name', 'description']
+    ordering_fields = ['name', 'suggested_cost', 'rarity', 'created_at']
+    ordering = ['name']
+    
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [permissions.IsAdminUser()]
+        return super().get_permissions()
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        # Filter by active status if specified
+        is_active = self.request.query_params.get('is_active', None)
+        if is_active is not None:
+            queryset = queryset.filter(is_active=is_active.lower() == 'true')
+        
+        # Filter by rarity if specified
+        rarity = self.request.query_params.get('rarity', None)
+        if rarity:
+            queryset = queryset.filter(rarity=rarity)
+        
+        return queryset
+    
+    @action(detail=False, methods=['get'])
+    def by_rarity(self, request):
+        """Get items grouped by rarity."""
+        from django.db.models import Count
+        
+        rarities = Item.objects.values('rarity').annotate(
+            count=Count('id')
+        ).order_by('rarity')
+        
+        result = {}
+        for rarity_data in rarities:
+            rarity = rarity_data['rarity']
+            items = self.get_queryset().filter(rarity=rarity)
+            serializer = self.get_serializer(items, many=True)
+            result[rarity] = {
+                'count': rarity_data['count'],
+                'items': serializer.data
+            }
+        
+        return Response(result)
+
+
+class LootDistributionViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing loot distributions.
+    Staff users can create/update/delete distributions.
+    """
+    queryset = LootDistribution.objects.select_related(
+        'user', 'item', 'raid', 'distributed_by'
+    )
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['character_name', 'user__username', 'item__name', 'notes']
+    ordering_fields = ['distributed_at', 'point_cost', 'character_name']
+    ordering = ['-distributed_at']
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return LootDistributionListSerializer
+        elif self.action == 'discord_award':
+            return DiscordLootAwardSerializer
+        elif self.action == 'user_balance':
+            return UserBalanceSerializer
+        return LootDistributionDetailSerializer
+    
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [permissions.IsAdminUser()]
+        elif self.action in ['discord_award']:
+            return [permissions.IsAdminUser()]
+        return super().get_permissions()
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        # Filter by user if specified
+        user_id = self.request.query_params.get('user', None)
+        if user_id == 'me':
+            user_id = self.request.user.id
+        if user_id:
+            queryset = queryset.filter(user_id=user_id)
+        
+        # Filter by item if specified
+        item_id = self.request.query_params.get('item', None)
+        if item_id:
+            queryset = queryset.filter(item_id=item_id)
+        
+        # Filter by raid if specified
+        raid_id = self.request.query_params.get('raid', None)
+        if raid_id:
+            queryset = queryset.filter(raid_id=raid_id)
+        
+        # Filter by character name if specified
+        character_name = self.request.query_params.get('character', None)
+        if character_name:
+            queryset = queryset.filter(character_name__icontains=character_name)
+        
+        # Filter by date range
+        date_from = self.request.query_params.get('date_from', None)
+        date_to = self.request.query_params.get('date_to', None)
+        if date_from:
+            queryset = queryset.filter(distributed_at__date__gte=date_from)
+        if date_to:
+            queryset = queryset.filter(distributed_at__date__lte=date_to)
+        
+        return queryset
+    
+    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    def discord_award(self, request):
+        """Award loot to a player via Discord bot interface."""
+        serializer = DiscordLootAwardSerializer(
+            data=request.data,
+            context={'request': request}
+        )
+        serializer.is_valid(raise_exception=True)
+        distribution = serializer.save()
+        
+        return Response(
+            LootDistributionDetailSerializer(distribution).data,
+            status=status.HTTP_201_CREATED
+        )
+    
+    @action(detail=False, methods=['post'])
+    def user_balance(self, request):
+        """Check user DKP balance via Discord bot interface."""
+        serializer = UserBalanceSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        user_info = serializer.get_user_info()
+        return Response(user_info)
+    
+    @action(detail=False, methods=['get'])
+    def recent(self, request):
+        """Get recent loot distributions."""
+        limit = int(request.query_params.get('limit', 20))
+        recent_distributions = self.get_queryset()[:limit]
+        serializer = self.get_serializer(recent_distributions, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def by_character(self, request):
+        """Get loot distributions grouped by character."""
+        character_name = request.query_params.get('character', None)
+        if not character_name:
+            return Response(
+                {'error': 'character parameter is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        distributions = self.get_queryset().filter(
+            character_name__icontains=character_name
+        )
+        serializer = self.get_serializer(distributions, many=True)
+        
+        # Calculate totals
+        total_cost = sum(d.point_cost * d.quantity for d in distributions)
+        total_items = sum(d.quantity for d in distributions)
+        
+        return Response({
+            'character_name': character_name,
+            'total_distributions': len(distributions),
+            'total_items': total_items,
+            'total_cost': total_cost,
+            'distributions': serializer.data
+        })

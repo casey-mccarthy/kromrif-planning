@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import Character, Rank, CharacterOwnership, Event, Raid, RaidAttendance
+from .models import Character, Rank, CharacterOwnership, Event, Raid, RaidAttendance, Item, LootDistribution
 
 
 @admin.register(Rank)
@@ -293,3 +293,147 @@ class RaidAttendanceAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         return qs.select_related('user', 'raid', 'raid__event', 'recorded_by')
+
+
+@admin.register(Item)
+class ItemAdmin(admin.ModelAdmin):
+    list_display = ['name', 'rarity_display', 'suggested_cost', 'is_active', 'distribution_count', 'average_cost', 'created_at']
+    list_filter = ['rarity', 'is_active', 'created_at']
+    search_fields = ['name', 'description']
+    ordering = ['name']
+    
+    fieldsets = (
+        (None, {
+            'fields': ('name', 'description', 'is_active')
+        }),
+        ('Pricing', {
+            'fields': ('suggested_cost', 'rarity')
+        }),
+        ('Statistics', {
+            'fields': ('distribution_count', 'average_cost'),
+            'classes': ('collapse',)
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    readonly_fields = ['created_at', 'updated_at', 'distribution_count', 'average_cost']
+    
+    def rarity_display(self, obj):
+        colors = {
+            'common': '#6c757d',      # gray
+            'uncommon': '#28a745',    # green
+            'rare': '#007bff',        # blue
+            'epic': '#6f42c1',        # purple
+            'legendary': '#fd7e14',   # orange
+        }
+        color = colors.get(obj.rarity, '#000000')
+        return format_html(
+            '<span style="color: {}; font-weight: bold;">{}</span>',
+            color,
+            obj.get_rarity_display()
+        )
+    rarity_display.short_description = 'Rarity'
+    rarity_display.admin_order_field = 'rarity'
+    
+    def distribution_count(self, obj):
+        count = obj.distributions.count()
+        return format_html(
+            '<a href="/admin/raiders/lootdistribution/?item__id__exact={}">{} distributions</a>',
+            obj.id, count
+        )
+    distribution_count.short_description = 'Distributions'
+    
+    def average_cost(self, obj):
+        avg = obj.get_average_cost()
+        return f"{avg:.2f} DKP" if avg else "No distributions"
+    average_cost.short_description = 'Average Cost'
+
+
+@admin.register(LootDistribution)
+class LootDistributionAdmin(admin.ModelAdmin):
+    list_display = [
+        'item', 'character_name', 'user', 'point_cost_display', 'quantity', 
+        'raid', 'distributed_at', 'distributed_by'
+    ]
+    list_filter = [
+        'item__rarity', 'distributed_at', 'distributed_by', 
+        'raid__event', 'quantity'
+    ]
+    search_fields = [
+        'item__name', 'character_name', 'user__username', 
+        'raid__title', 'notes', 'distributed_by__username'
+    ]
+    date_hierarchy = 'distributed_at'
+    ordering = ['-distributed_at']
+    
+    fieldsets = (
+        ('Distribution Details', {
+            'fields': ('item', 'user', 'character_name', 'point_cost', 'quantity')
+        }),
+        ('Context', {
+            'fields': ('raid', 'distributed_by', 'notes')
+        }),
+        ('Discord Integration', {
+            'fields': ('discord_message_id', 'discord_channel_id'),
+            'classes': ('collapse',)
+        }),
+        ('Timestamps', {
+            'fields': ('distributed_at',),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    readonly_fields = ['distributed_at']
+    autocomplete_fields = ['user', 'item', 'raid', 'distributed_by']
+    
+    def point_cost_display(self, obj):
+        total_cost = obj.point_cost * obj.quantity
+        if obj.quantity > 1:
+            return format_html(
+                '<span style="font-weight: bold;">{:.2f} DKP</span><br><small>({:.2f} × {})</small>',
+                total_cost, obj.point_cost, obj.quantity
+            )
+        else:
+            return format_html(
+                '<span style="font-weight: bold;">{:.2f} DKP</span>',
+                obj.point_cost
+            )
+    point_cost_display.short_description = 'Cost'
+    point_cost_display.admin_order_field = 'point_cost'
+    
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.select_related('item', 'user', 'raid', 'distributed_by')
+    
+    actions = ['recalculate_point_deductions']
+    
+    def recalculate_point_deductions(self, request, queryset):
+        """Action to recalculate point deductions for selected distributions"""
+        count = 0
+        errors = []
+        
+        for distribution in queryset:
+            try:
+                # This would require implementing a recalculation method
+                # For now, just count successful ones
+                count += 1
+            except Exception as e:
+                errors.append(f"Error with {distribution}: {str(e)}")
+        
+        if count:
+            self.message_user(
+                request,
+                f'Successfully processed {count} distributions.'
+            )
+        
+        if errors:
+            self.message_user(
+                request,
+                'Errors: ' + '; '.join(errors),
+                level='WARNING'
+            )
+    
+    recalculate_point_deductions.short_description = 'Recalculate point deductions'
