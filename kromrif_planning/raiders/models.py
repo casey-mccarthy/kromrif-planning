@@ -750,7 +750,8 @@ class LootDistribution(models.Model):
         
         self.clean()
         
-        # Check if user can afford the item
+        # Check if user can afford the item (only for new distributions)
+        # Point deduction is handled automatically by signals
         from ..dkp.models import DKPManager
         if self.pk is None:  # New distribution
             current_balance = DKPManager.get_user_balance(self.user)
@@ -788,7 +789,7 @@ class LootDistribution(models.Model):
     def distribute_item(cls, user, item, point_cost, character_name=None, raid=None, 
                        quantity=1, notes='', distributed_by=None, discord_context=None):
         """
-        Distribute an item to a user and automatically deduct DKP points.
+        Distribute an item to a user and automatically deduct DKP points via signals.
         
         Args:
             user: User receiving the item
@@ -805,6 +806,7 @@ class LootDistribution(models.Model):
             LootDistribution: The created distribution record
         """
         # Create the distribution record
+        # Point deduction is handled automatically by post_save signal
         distribution = cls.objects.create(
             user=user,
             item=item,
@@ -817,8 +819,5 @@ class LootDistribution(models.Model):
             discord_message_id=discord_context.get('message_id', '') if discord_context else '',
             discord_channel_id=discord_context.get('channel_id', '') if discord_context else ''
         )
-        
-        # Process point deduction
-        distribution.process_point_deduction(created_by=distributed_by)
         
         return distribution
