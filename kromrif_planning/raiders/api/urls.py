@@ -1,9 +1,12 @@
+from django.urls import path
 from rest_framework.routers import DefaultRouter
 from .views import (
     CharacterViewSet, RankViewSet, CharacterOwnershipViewSet,
     EventViewSet, RaidViewSet, RaidAttendanceViewSet,
     ItemViewSet, LootDistributionViewSet, LootAuditLogViewSet
 )
+from .discord_api import DiscordRosterViewSet, DiscordMemberManagementViewSet
+from .discord_webhook import DiscordWebhookView, DiscordWebhookAPIView
 
 app_name = 'raiders-api'
 
@@ -18,4 +21,11 @@ router.register(r'items', ItemViewSet, basename='item')
 router.register(r'loot-distributions', LootDistributionViewSet, basename='loot-distribution')
 router.register(r'audit-logs', LootAuditLogViewSet, basename='audit-log')
 
-urlpatterns = router.urls
+# Discord API endpoints (for bot access)
+router.register(r'discord/roster', DiscordRosterViewSet, basename='discord-roster')
+router.register(r'discord/members', DiscordMemberManagementViewSet, basename='discord-members')
+
+urlpatterns = router.urls + [
+    path('webhooks/discord/', DiscordWebhookView.as_view(), name='discord-webhook'),
+    path('webhooks/discord/api/', DiscordWebhookAPIView.as_view(), name='discord-webhook-api'),
+]

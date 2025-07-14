@@ -12,6 +12,8 @@ from django.db import transaction
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework.serializers import ValidationError
 
+from .error_handling import DiscordAPIErrorMixin, discord_api_error_handler, HealthCheckMixin
+
 from ..models import Character, Rank, CharacterOwnership, Event, Raid, RaidAttendance, Item, LootDistribution
 from .serializers import (
     CharacterListSerializer, CharacterDetailSerializer, 
@@ -25,18 +27,20 @@ from .discord_serializers import (
     DiscordLinkUserSerializer, DiscordUnlinkUserSerializer, DiscordOperationResponseSerializer
 )
 from .permissions import IsMemberOrHigher, IsOfficerOrHigher, IsDiscordBot
+from ..services import DiscordMemberService, DiscordSyncService
 
 User = get_user_model()
 
 
-class DiscordRosterViewSet(viewsets.ReadOnlyModelViewSet):
+class DiscordRosterViewSet(DiscordAPIErrorMixin, HealthCheckMixin, viewsets.ReadOnlyModelViewSet):
     """
     Discord bot API for roster queries and member information.
     Provides read-only access to guild roster data optimized for Discord bot operations.
     """
-    permission_classes = [IsMemberOrHigher]
+    permission_classes = [IsDiscordBot]
     
     @action(detail=False, methods=['get'])
+    @discord_api_error_handler("guild_roster")
     def guild_roster(self, request):
         """Get complete guild roster with character and user information."""
         # Get all active characters with user info
@@ -197,208 +201,130 @@ class DiscordRosterViewSet(viewsets.ReadOnlyModelViewSet):
             },
             'top_dkp_holders': top_dkp
         })
+    
+    @action(detail=False, methods=['get'])
+    @discord_api_error_handler("health_check")
+    def health_check(self, request):
+        """Health check endpoint for Discord bot integration."""
+        health_status = self.check_discord_health()
+        
+        # Add some additional API-specific health info
+        try:
+            character_count = Character.objects.filter(is_active=True).count()
+            health_status['api_metrics'] = {
+                'active_characters': character_count,
+                'total_users': User.objects.count()
+            }
+        except Exception as e:
+            health_status['api_metrics'] = {'error': str(e)}
+        
+        response_status = status.HTTP_200_OK
+        if health_status['status'] == 'unhealthy':
+            response_status = status.HTTP_503_SERVICE_UNAVAILABLE
+        elif health_status['status'] == 'degraded':
+            response_status = status.HTTP_206_PARTIAL_CONTENT
+        
+        return Response(health_status, status=response_status)
 
 
-class DiscordMemberManagementViewSet(viewsets.ViewSet):
+class DiscordMemberManagementViewSet(DiscordAPIErrorMixin, viewsets.ViewSet):
     """
     Discord bot API for member management operations.
     Provides endpoints for updating member status, linking/unlinking, and notifications.
     """
-    permission_classes = [IsOfficerOrHigher]
+    permission_classes = [IsDiscordBot]
     
     @action(detail=False, methods=['post'])
     def update_member_status(self, request):
         """Update a member's status (active/inactive) via Discord command."""
-        user_identifier = request.data.get('user_identifier')  # username, character_name, or discord_id
-        new_status = request.data.get('status')  # 'active' or 'inactive'
-        reason = request.data.get('reason', 'Updated via Discord bot')
-        
-        if not user_identifier or not new_status:
+        serializer = DiscordMemberStatusUpdateSerializer(data=request.data)
+        if not serializer.is_valid():
             return Response(
-                {'error': 'user_identifier and status are required'},
+                {'error': 'Invalid data', 'details': serializer.errors},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        if new_status not in ['active', 'inactive']:
-            return Response(
-                {'error': 'status must be "active" or "inactive"'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        # Use service layer for business logic
+        success, message, user = DiscordMemberService.update_member_status(
+            user_identifier=serializer.validated_data['user_identifier'],
+            new_status=serializer.validated_data['status'],
+            reason=serializer.validated_data['reason'],
+            requester=request.user
+        )
         
-        try:
-            # Find the user
-            user = None
-            
-            # Try Discord ID first
-            if user_identifier.isdigit():
-                try:
-                    user = User.objects.get(discord_id=user_identifier)
-                except User.DoesNotExist:
-                    pass
-            
-            # Try username
-            if not user:
-                try:
-                    user = User.objects.get(username__iexact=user_identifier)
-                except User.DoesNotExist:
-                    pass
-            
-            # Try character name
-            if not user:
-                try:
-                    character = Character.objects.get(name__iexact=user_identifier)
-                    user = character.user
-                except Character.DoesNotExist:
-                    pass
-            
-            if not user:
-                return Response(
-                    {'error': f'User not found: {user_identifier}'},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-            
-            # Update user status
-            old_status = 'active' if user.is_active else 'inactive'
-            user.is_active = (new_status == 'active')
-            user.save()
-            
-            # Update character statuses to match
-            if new_status == 'inactive':
-                user.characters.filter(is_active=True).update(is_active=False)
-            
-            # Log the change
-            from ...dkp.models import DKPManager, PointAdjustment
-            try:
-                # Create a log entry for the status change
-                # This could be expanded to use a dedicated audit log model
-                description = f"Member status changed from {old_status} to {new_status}. Reason: {reason}"
-                # You could add this to an audit log model here
-            except Exception:
-                # Logging failed, but status change succeeded
-                pass
-            
+        if success:
             return Response({
                 'success': True,
-                'message': f'Updated {user.username} status from {old_status} to {new_status}',
+                'message': message,
                 'user': {
                     'id': user.id,
                     'username': user.username,
-                    'status': new_status,
+                    'status': serializer.validated_data['status'],
                     'discord_id': getattr(user, 'discord_id', None)
                 }
             })
-            
-        except Exception as e:
+        else:
             return Response(
-                {'error': f'Failed to update member status: {str(e)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {'error': message},
+                status=status.HTTP_400_BAD_REQUEST if user else status.HTTP_404_NOT_FOUND
             )
     
     @action(detail=False, methods=['post'])
+    @discord_api_error_handler("link_discord_user")
     def link_discord_user(self, request):
         """Link a Discord user to an application user account."""
-        discord_id = request.data.get('discord_id')
-        discord_username = request.data.get('discord_username')
-        app_username = request.data.get('app_username')
-        
-        if not all([discord_id, app_username]):
+        serializer = DiscordLinkUserSerializer(data=request.data)
+        if not serializer.is_valid():
             return Response(
-                {'error': 'discord_id and app_username are required'},
+                {'error': 'Invalid data', 'details': serializer.errors},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        try:
-            # Find the application user
-            app_user = User.objects.get(username__iexact=app_username)
-            
-            # Check if Discord ID is already linked
-            existing_link = User.objects.filter(discord_id=discord_id).first()
-            if existing_link and existing_link != app_user:
-                return Response(
-                    {'error': f'Discord ID {discord_id} is already linked to user {existing_link.username}'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            # Update user with Discord information
-            app_user.discord_id = discord_id
-            if discord_username:
-                app_user.discord_username = discord_username
-            app_user.save()
-            
+        # Use service layer for business logic
+        success, message, user = DiscordMemberService.link_discord_user(
+            discord_id=serializer.validated_data['discord_id'],
+            app_username=serializer.validated_data['app_username'],
+            discord_username=serializer.validated_data.get('discord_username'),
+            requester=request.user
+        )
+        
+        if success:
             return Response({
                 'success': True,
-                'message': f'Successfully linked Discord user {discord_username or discord_id} to {app_username}',
+                'message': message,
                 'user': {
-                    'id': app_user.id,
-                    'username': app_user.username,
-                    'discord_id': app_user.discord_id,
-                    'discord_username': getattr(app_user, 'discord_username', None)
+                    'id': user.id,
+                    'username': user.username,
+                    'discord_id': user.discord_id,
+                    'discord_username': getattr(user, 'discord_username', None)
                 }
             })
-            
-        except User.DoesNotExist:
+        else:
             return Response(
-                {'error': f'Application user not found: {app_username}'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        except Exception as e:
-            return Response(
-                {'error': f'Failed to link Discord user: {str(e)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {'error': message},
+                status=status.HTTP_400_BAD_REQUEST if user else status.HTTP_404_NOT_FOUND
             )
     
     @action(detail=False, methods=['post'])
     def unlink_discord_user(self, request):
         """Unlink a Discord user from an application user account."""
-        identifier = request.data.get('identifier')  # Can be discord_id or app_username
-        
-        if not identifier:
+        serializer = DiscordUnlinkUserSerializer(data=request.data)
+        if not serializer.is_valid():
             return Response(
-                {'error': 'identifier (discord_id or app_username) is required'},
+                {'error': 'Invalid data', 'details': serializer.errors},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        try:
-            user = None
-            
-            # Try to find by Discord ID
-            if identifier.isdigit():
-                try:
-                    user = User.objects.get(discord_id=identifier)
-                except User.DoesNotExist:
-                    pass
-            
-            # Try to find by username
-            if not user:
-                try:
-                    user = User.objects.get(username__iexact=identifier)
-                except User.DoesNotExist:
-                    pass
-            
-            if not user:
-                return Response(
-                    {'error': f'User not found: {identifier}'},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-            
-            if not getattr(user, 'discord_id', None):
-                return Response(
-                    {'error': f'User {user.username} is not linked to Discord'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            # Clear Discord information
-            old_discord_id = user.discord_id
-            old_discord_username = getattr(user, 'discord_username', None)
-            
-            user.discord_id = None
-            if hasattr(user, 'discord_username'):
-                user.discord_username = None
-            user.save()
-            
+        # Use service layer for business logic
+        success, message, user = DiscordMemberService.unlink_discord_user(
+            identifier=serializer.validated_data['identifier'],
+            requester=request.user
+        )
+        
+        if success:
             return Response({
                 'success': True,
-                'message': f'Successfully unlinked Discord user {old_discord_username or old_discord_id} from {user.username}',
+                'message': message,
                 'user': {
                     'id': user.id,
                     'username': user.username,
@@ -406,32 +332,93 @@ class DiscordMemberManagementViewSet(viewsets.ViewSet):
                     'discord_username': None
                 }
             })
-            
-        except Exception as e:
+        else:
             return Response(
-                {'error': f'Failed to unlink Discord user: {str(e)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {'error': message},
+                status=status.HTTP_400_BAD_REQUEST if user else status.HTTP_404_NOT_FOUND
             )
     
     @action(detail=False, methods=['get'])
     def discord_linked_users(self, request):
         """Get list of all users linked to Discord."""
-        # Find users with Discord IDs
-        linked_users = User.objects.exclude(discord_id__isnull=True).exclude(discord_id='')
-        
-        user_data = []
-        for user in linked_users:
-            main_char = user.characters.filter(is_active=True).first()
-            user_data.append({
-                'id': user.id,
-                'username': user.username,
-                'discord_id': user.discord_id,
-                'discord_username': getattr(user, 'discord_username', None),
-                'main_character': main_char.name if main_char else None,
-                'is_active': user.is_active
-            })
+        # Use service layer for business logic
+        user_data = DiscordMemberService.get_discord_linked_users()
         
         return Response({
             'total_linked': len(user_data),
             'linked_users': user_data
+        })
+    
+    @action(detail=False, methods=['post'])
+    def bulk_link_users(self, request):
+        """Bulk link multiple Discord users to application accounts."""
+        link_data = request.data.get('links', [])
+        
+        if not link_data or not isinstance(link_data, list):
+            return Response(
+                {'error': 'links parameter must be a non-empty list'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        results = {
+            'successful': [],
+            'failed': [],
+            'total_processed': 0
+        }
+        
+        for link_info in link_data:
+            results['total_processed'] += 1
+            
+            try:
+                success, message, user = DiscordMemberService.link_discord_user(
+                    discord_id=link_info.get('discord_id'),
+                    app_username=link_info.get('app_username'),
+                    discord_username=link_info.get('discord_username'),
+                    requester=request.user
+                )
+                
+                if success:
+                    results['successful'].append({
+                        'discord_id': link_info.get('discord_id'),
+                        'app_username': link_info.get('app_username'),
+                        'message': message
+                    })
+                else:
+                    results['failed'].append({
+                        'discord_id': link_info.get('discord_id'),
+                        'app_username': link_info.get('app_username'),
+                        'error': message
+                    })
+                    
+            except Exception as e:
+                results['failed'].append({
+                    'discord_id': link_info.get('discord_id'),
+                    'app_username': link_info.get('app_username'),
+                    'error': str(e)
+                })
+        
+        return Response({
+            'success': True,
+            'message': f'Processed {results["total_processed"]} link requests',
+            'results': results
+        })
+    
+    @action(detail=False, methods=['post'])
+    def sync_discord_members(self, request):
+        """Sync Discord guild members with application users."""
+        guild_members = request.data.get('guild_members', [])
+        
+        if not guild_members or not isinstance(guild_members, list):
+            return Response(
+                {'error': 'guild_members parameter must be a non-empty list'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Use service layer for synchronization
+        stats = DiscordSyncService.sync_guild_members(guild_members)
+        
+        return Response({
+            'success': True,
+            'message': f'Synced {stats["processed"]} guild members',
+            'stats': stats
         })

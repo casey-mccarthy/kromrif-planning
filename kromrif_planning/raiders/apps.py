@@ -9,3 +9,4 @@ class RaidersConfig(AppConfig):
     def ready(self):
         """Import signals when the app is ready"""
         import kromrif_planning.raiders.signals
+        import kromrif_planning.raiders.discord_signals

@@ -4,6 +4,10 @@ from rest_framework.response import Response
 from django.db.models import Count, Q
 from django.http import HttpResponse
 import csv
+from ..permissions import (
+    IsOwnerOrOfficer, IsOfficerOrHigher, IsMemberOrHigher, 
+    IsReadOnlyOrOfficer, IsBotOrStaff
+)
 from ..models import Character, Rank, CharacterOwnership, Event, Raid, RaidAttendance, Item, LootDistribution, LootAuditLog
 from .serializers import (
     CharacterListSerializer,
@@ -34,8 +38,8 @@ class RankViewSet(viewsets.ModelViewSet):
     Only staff users can create/update/delete ranks.
     """
     queryset = Rank.objects.all()
+    permission_classes = [IsReadOnlyOrOfficer]
     serializer_class = RankSerializer
-    permission_classes = [permissions.IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name', 'description']
     ordering_fields = ['level', 'name', 'created_at']
@@ -53,7 +57,7 @@ class CharacterViewSet(viewsets.ModelViewSet):
     Users can only edit their own characters unless they are staff.
     """
     queryset = Character.objects.select_related('user')
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsOwnerOrOfficer]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name', 'description', 'user__username']
     ordering_fields = ['name', 'level', 'created_at', 'updated_at']
@@ -386,7 +390,7 @@ class LootDistributionViewSet(viewsets.ModelViewSet):
     queryset = LootDistribution.objects.select_related(
         'user', 'item', 'raid', 'distributed_by'
     )
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsBotOrStaff]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['character_name', 'user__username', 'item__name', 'notes']
     ordering_fields = ['distributed_at', 'point_cost', 'character_name']
