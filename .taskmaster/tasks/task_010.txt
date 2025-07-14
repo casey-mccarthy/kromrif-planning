@@ -1,6 +1,6 @@
 # Task ID: 10
 # Title: Recruitment Application and Voting System
-# Status: in-progress
+# Status: pending
 # Dependencies: 7
 # Priority: high
 # Description: Build comprehensive recruitment system with two-stage approval and member voting
