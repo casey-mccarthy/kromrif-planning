@@ -1,14 +1,17 @@
 from rest_framework import viewsets, permissions, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Avg, Max
 from django.http import HttpResponse
+from django.contrib.auth import get_user_model
+from django.utils import timezone
+from datetime import timedelta
 import csv
 from ..permissions import (
     IsOwnerOrOfficer, IsOfficerOrHigher, IsMemberOrHigher, 
     IsReadOnlyOrOfficer, IsBotOrStaff
 )
-from ..models import Character, Rank, CharacterOwnership, Event, Raid, RaidAttendance, Item, LootDistribution, LootAuditLog
+from ..models import Character, Rank, CharacterOwnership, Event, Raid, RaidAttendance, Item, LootDistribution, LootAuditLog, MemberAttendanceSummary
 from .serializers import (
     CharacterListSerializer,
     CharacterDetailSerializer,
@@ -28,8 +31,15 @@ from .serializers import (
     UserBalanceSerializer,
     LootAuditLogSerializer,
     LootAuditLogListSerializer,
-    AuditLogFilterSerializer
+    AuditLogFilterSerializer,
+    AttendanceSummaryListSerializer,
+    AttendanceSummaryDetailSerializer,
+    AttendanceStatsSerializer,
+    AttendanceLeaderboardSerializer,
+    UserAttendanceQuerySerializer
 )
+
+User = get_user_model()
 
 
 class RankViewSet(viewsets.ModelViewSet):
@@ -692,20 +702,410 @@ class LootAuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     
     @action(detail=False, methods=['get'])
     def character_history(self, request):
-        """Get audit logs for a specific character."""
-        character_name = request.query_params.get('character', None)
+        """
+        Get audit log entries for a specific character.
+        """
+        character_name = request.query_params.get('character_name')
+        
         if not character_name:
             return Response(
-                {'error': 'character parameter is required'}, 
+                {'error': 'character_name parameter is required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        character_logs = self.get_queryset().filter(
+        logs = self.get_queryset().filter(
             character_name__iexact=character_name
-        )
+        ).order_by('-timestamp')[:50]
         
-        serializer = self.get_serializer(character_logs, many=True)
+        serializer = self.get_serializer(logs, many=True)
         return Response({
             'character_name': character_name,
-            'activity_history': serializer.data
+            'logs': serializer.data,
+            'count': len(serializer.data)
         })
+
+
+class MemberAttendanceSummaryViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet for attendance summaries, leaderboards, and statistics.
+    Provides read-only access to attendance data with various filtering and aggregation options.
+    """
+    queryset = MemberAttendanceSummary.objects.select_related('user').all()
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['user__username', 'user__first_name', 'user__last_name']
+    ordering_fields = [
+        'summary_date', 'attendance_rate_7d', 'attendance_rate_30d', 
+        'attendance_rate_60d', 'attendance_rate_90d', 'attendance_rate_lifetime',
+        'current_attendance_streak', 'longest_attendance_streak'
+    ]
+    ordering = ['-summary_date', '-attendance_rate_30d']
+    
+    def get_serializer_class(self):
+        """Select appropriate serializer based on action."""
+        if self.action in ['retrieve']:
+            return AttendanceSummaryDetailSerializer
+        return AttendanceSummaryListSerializer
+    
+    def get_queryset(self):
+        """Filter queryset based on request parameters."""
+        queryset = super().get_queryset()
+        
+        # Filter by date range
+        date_from = self.request.query_params.get('date_from')
+        date_to = self.request.query_params.get('date_to')
+        
+        if date_from:
+            queryset = queryset.filter(summary_date__gte=date_from)
+        if date_to:
+            queryset = queryset.filter(summary_date__lte=date_to)
+        
+        # Filter by voting eligibility
+        voting_eligible = self.request.query_params.get('voting_eligible')
+        if voting_eligible is not None:
+            is_eligible = voting_eligible.lower() in ('true', '1', 'yes')
+            queryset = queryset.filter(is_voting_eligible=is_eligible)
+        
+        # Filter by user
+        user_id = self.request.query_params.get('user_id')
+        username = self.request.query_params.get('username')
+        
+        if user_id:
+            try:
+                queryset = queryset.filter(user_id=int(user_id))
+            except (ValueError, TypeError):
+                pass  # Invalid user_id, ignore filter
+        elif username:
+            queryset = queryset.filter(user__username__icontains=username)
+        
+        # Get most recent summaries by default (unless date specified)
+        if not date_from and not date_to:
+            # Get the most recent summary date and filter to that
+            latest_date = queryset.aggregate(
+                latest=Max('summary_date')
+            )['latest']
+            
+            if latest_date:
+                queryset = queryset.filter(summary_date=latest_date)
+        
+        return queryset
+    
+    @action(detail=False, methods=['get'])
+    def leaderboard(self, request):
+        """
+        Get attendance leaderboard for specified period.
+        
+        Query Parameters:
+        - period: 7d, 30d, 60d, 90d, lifetime (default: 30d)
+        - limit: Number of results (1-100, default: 10)
+        - date: Specific date for historical data (YYYY-MM-DD)
+        - voting_eligible_only: Only include voting eligible members (default: false)
+        """
+        # Validate and parse parameters
+        serializer = AttendanceLeaderboardSerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        
+        period = serializer.validated_data['period']
+        limit = serializer.validated_data['limit']
+        date = serializer.validated_data.get('date')
+        voting_eligible_only = serializer.validated_data['voting_eligible_only']
+        
+        # Use the model's built-in leaderboard method
+        leaderboard_data = MemberAttendanceSummary.get_attendance_leaderboard(
+            period=period,
+            limit=limit,
+            date=date
+        )
+        
+        # Filter by voting eligibility if requested
+        if voting_eligible_only:
+            leaderboard_data = leaderboard_data.filter(is_voting_eligible=True)
+        
+        # Serialize the results
+        result_serializer = AttendanceSummaryListSerializer(leaderboard_data, many=True)
+        
+        return Response({
+            'period': period,
+            'limit': limit,
+            'date': date or 'latest',
+            'voting_eligible_only': voting_eligible_only,
+            'leaderboard': result_serializer.data,
+            'count': len(result_serializer.data)
+        })
+    
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """
+        Get overall attendance statistics and aggregated data.
+        
+        Query Parameters:
+        - date: Specific date for historical stats (YYYY-MM-DD, default: latest)
+        """
+        date = request.query_params.get('date')
+        
+        # Get base queryset for the specified date
+        if date:
+            queryset = MemberAttendanceSummary.objects.filter(summary_date=date)
+        else:
+            # Get most recent summaries
+            latest_date = MemberAttendanceSummary.objects.aggregate(
+                latest=Max('summary_date')
+            )['latest']
+            
+            if not latest_date:
+                return Response({
+                    'error': 'No attendance data available'
+                }, status=status.HTTP_404_NOT_FOUND)
+            
+            queryset = MemberAttendanceSummary.objects.filter(summary_date=latest_date)
+            date = latest_date
+        
+        if not queryset.exists():
+            return Response({
+                'error': f'No attendance data available for {date}'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # Calculate statistics
+        stats = queryset.aggregate(
+            total_members=Count('id'),
+            voting_eligible_count=Count('id', filter=Q(is_voting_eligible=True)),
+            average_attendance_30d=Avg('attendance_rate_30d'),
+            average_attendance_90d=Avg('attendance_rate_90d'),
+            average_attendance_lifetime=Avg('attendance_rate_lifetime'),
+            highest_streak=Max('longest_attendance_streak'),
+            active_streaks=Count('id', filter=Q(current_attendance_streak__gt=0))
+        )
+        
+        # Calculate voting eligible percentage
+        if stats['total_members'] > 0:
+            stats['voting_eligible_percentage'] = round(
+                (stats['voting_eligible_count'] / stats['total_members']) * 100, 2
+            )
+        else:
+            stats['voting_eligible_percentage'] = 0
+        
+        # Get top performers (30-day rate)
+        top_performers = queryset.order_by('-attendance_rate_30d')[:5]
+        stats['top_performers_30d'] = AttendanceSummaryListSerializer(
+            top_performers, many=True
+        ).data
+        
+        # Get recent update timestamp
+        stats['recent_updates'] = queryset.order_by('-last_updated').first().last_updated
+        
+        # Serialize and return
+        result_serializer = AttendanceStatsSerializer(data=stats)
+        result_serializer.is_valid(raise_exception=True)
+        
+        return Response({
+            'date': date,
+            'statistics': result_serializer.validated_data
+        })
+    
+    @action(detail=False, methods=['get'])
+    def user_history(self, request):
+        """
+        Get attendance history for a specific user.
+        
+        Query Parameters:
+        - user_id: User ID to query (required if username not provided)
+        - username: Username to query (required if user_id not provided)
+        - date_from: Start date for history (YYYY-MM-DD)
+        - date_to: End date for history (YYYY-MM-DD)
+        """
+        # Validate parameters
+        serializer = UserAttendanceQuerySerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        
+        user_id = serializer.validated_data.get('user_id')
+        username = serializer.validated_data.get('username')
+        date_from = serializer.validated_data.get('date_from')
+        date_to = serializer.validated_data.get('date_to')
+        
+        # Get user
+        try:
+            if user_id:
+                user = User.objects.get(id=user_id)
+            else:
+                user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            return Response({
+                'error': f'User not found: {user_id or username}'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # Get user's attendance history
+        queryset = MemberAttendanceSummary.objects.filter(user=user)
+        
+        if date_from:
+            queryset = queryset.filter(summary_date__gte=date_from)
+        if date_to:
+            queryset = queryset.filter(summary_date__lte=date_to)
+        
+        # Order by date (most recent first)
+        queryset = queryset.order_by('-summary_date')
+        
+        # Serialize results
+        result_serializer = AttendanceSummaryDetailSerializer(queryset, many=True)
+        
+        return Response({
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'display_name': user.get_full_name() or user.username
+            },
+            'date_range': {
+                'from': date_from,
+                'to': date_to
+            },
+            'history': result_serializer.data,
+            'count': len(result_serializer.data)
+        })
+    
+    @action(detail=False, methods=['get'])
+    def voting_eligible(self, request):
+        """
+        Get list of voting eligible members.
+        
+        Query Parameters:
+        - date: Specific date for eligibility check (YYYY-MM-DD, default: latest)
+        """
+        date = request.query_params.get('date')
+        
+        # Get voting eligible members
+        eligible_members = MemberAttendanceSummary.get_voting_eligible_members(date=date)
+        
+        if not eligible_members.exists():
+            return Response({
+                'date': date or 'latest',
+                'voting_eligible_members': [],
+                'count': 0,
+                'message': 'No voting eligible members found'
+            })
+        
+        # Serialize results
+        serializer = AttendanceSummaryListSerializer(eligible_members, many=True)
+        
+        return Response({
+            'date': date or eligible_members.first().summary_date,
+            'voting_eligible_members': serializer.data,
+            'count': len(serializer.data)
+        })
+    
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAdminUser])
+    def export_csv(self, request):
+        """
+        Export attendance summaries to CSV format.
+        Admin only endpoint for data exports.
+        
+        Query Parameters:
+        - date: Specific date for export (YYYY-MM-DD, default: latest)
+        - period: Include specific period data (7d, 30d, 60d, 90d, lifetime, all)
+        """
+        date = request.query_params.get('date')
+        period = request.query_params.get('period', 'all')
+        
+        # Get data for export
+        if date:
+            queryset = MemberAttendanceSummary.objects.filter(summary_date=date)
+        else:
+            # Get most recent summaries
+            latest_date = MemberAttendanceSummary.objects.aggregate(
+                latest=Max('summary_date')
+            )['latest']
+            
+            if not latest_date:
+                return Response({
+                    'error': 'No attendance data available'
+                }, status=status.HTTP_404_NOT_FOUND)
+            
+            queryset = MemberAttendanceSummary.objects.filter(summary_date=latest_date)
+            date = latest_date
+        
+        # Order by attendance rate (descending)
+        queryset = queryset.select_related('user').order_by('-attendance_rate_30d')
+        
+        # Create CSV response
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="attendance_summary_{date}.csv"'
+        
+        writer = csv.writer(response)
+        
+        # Write header based on period selection
+        if period == 'all':
+            header = [
+                'Username', 'User ID', 'Summary Date',
+                '7d Rate', '7d Attended', '7d Total',
+                '30d Rate', '30d Attended', '30d Total',
+                '60d Rate', '60d Attended', '60d Total',
+                '90d Rate', '90d Attended', '90d Total',
+                'Lifetime Rate', 'Lifetime Attended', 'Lifetime Total',
+                'Voting Eligible', 'Current Streak', 'Longest Streak',
+                'Last Updated'
+            ]
+        else:
+            # Single period export
+            period_map = {
+                '7d': ('7d', 'attendance_rate_7d', 'attended_raids_7d', 'total_raids_7d'),
+                '30d': ('30d', 'attendance_rate_30d', 'attended_raids_30d', 'total_raids_30d'),
+                '60d': ('60d', 'attendance_rate_60d', 'attended_raids_60d', 'total_raids_60d'),
+                '90d': ('90d', 'attendance_rate_90d', 'attended_raids_90d', 'total_raids_90d'),
+                'lifetime': ('Lifetime', 'attendance_rate_lifetime', 'attended_raids_lifetime', 'total_raids_lifetime')
+            }
+            
+            if period not in period_map:
+                period = '30d'  # Default fallback
+            
+            period_name = period_map[period][0]
+            header = [
+                'Username', 'User ID', 'Summary Date',
+                f'{period_name} Rate', f'{period_name} Attended', f'{period_name} Total',
+                'Voting Eligible', 'Current Streak', 'Longest Streak'
+            ]
+        
+        writer.writerow(header)
+        
+        # Write data rows
+        for summary in queryset:
+            if period == 'all':
+                row = [
+                    summary.user.username,
+                    summary.user.id,
+                    summary.summary_date,
+                    summary.attendance_rate_7d,
+                    summary.attended_raids_7d,
+                    summary.total_raids_7d,
+                    summary.attendance_rate_30d,
+                    summary.attended_raids_30d,
+                    summary.total_raids_30d,
+                    summary.attendance_rate_60d,
+                    summary.attended_raids_60d,
+                    summary.total_raids_60d,
+                    summary.attendance_rate_90d,
+                    summary.attended_raids_90d,
+                    summary.total_raids_90d,
+                    summary.attendance_rate_lifetime,
+                    summary.attended_raids_lifetime,
+                    summary.total_raids_lifetime,
+                    summary.is_voting_eligible,
+                    summary.current_attendance_streak,
+                    summary.longest_attendance_streak,
+                    summary.last_updated
+                ]
+            else:
+                # Single period row
+                _, rate_field, attended_field, total_field = period_map[period]
+                row = [
+                    summary.user.username,
+                    summary.user.id,
+                    summary.summary_date,
+                    getattr(summary, rate_field),
+                    getattr(summary, attended_field),
+                    getattr(summary, total_field),
+                    summary.is_voting_eligible,
+                    summary.current_attendance_streak,
+                    summary.longest_attendance_streak
+                ]
+            
+            writer.writerow(row)
+        
+        return response

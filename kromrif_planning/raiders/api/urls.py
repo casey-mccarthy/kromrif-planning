@@ -3,7 +3,8 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     CharacterViewSet, RankViewSet, CharacterOwnershipViewSet,
     EventViewSet, RaidViewSet, RaidAttendanceViewSet,
-    ItemViewSet, LootDistributionViewSet, LootAuditLogViewSet
+    ItemViewSet, LootDistributionViewSet, LootAuditLogViewSet,
+    MemberAttendanceSummaryViewSet
 )
 from .discord_api import DiscordRosterViewSet, DiscordMemberManagementViewSet
 from .discord_webhook import DiscordWebhookView, DiscordWebhookAPIView
@@ -17,6 +18,7 @@ router.register(r'ownership-history', CharacterOwnershipViewSet, basename='owner
 router.register(r'events', EventViewSet, basename='event')
 router.register(r'raids', RaidViewSet, basename='raid')
 router.register(r'attendance', RaidAttendanceViewSet, basename='attendance')
+router.register(r'attendance-summaries', MemberAttendanceSummaryViewSet, basename='attendance-summary')
 router.register(r'items', ItemViewSet, basename='item')
 router.register(r'loot-distributions', LootDistributionViewSet, basename='loot-distribution')
 router.register(r'audit-logs', LootAuditLogViewSet, basename='audit-log')

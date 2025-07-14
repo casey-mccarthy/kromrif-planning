@@ -1110,3 +1110,259 @@ class LootAuditLog(models.Model):
             description=description,
             **kwargs
         )
+
+
+class MemberAttendanceSummary(models.Model):
+    """
+    Stores aggregated attendance statistics for each member.
+    This model is updated daily via management command for performance optimization.
+    """
+    
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='attendance_summaries',
+        help_text="The user whose attendance is being tracked"
+    )
+    
+    summary_date = models.DateField(
+        default=timezone.now,
+        help_text="Date this summary is calculated for"
+    )
+    
+    # Rolling average attendance rates (as percentages)
+    attendance_rate_7d = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Attendance rate over last 7 days (0-100%)"
+    )
+    
+    attendance_rate_30d = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Attendance rate over last 30 days (0-100%)"
+    )
+    
+    attendance_rate_60d = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Attendance rate over last 60 days (0-100%)"
+    )
+    
+    attendance_rate_90d = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Attendance rate over last 90 days (0-100%)"
+    )
+    
+    attendance_rate_lifetime = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Lifetime attendance rate (0-100%)"
+    )
+    
+    # Raw attendance counts for reference
+    total_raids_7d = models.PositiveIntegerField(
+        default=0,
+        help_text="Total raids available in last 7 days"
+    )
+    
+    attended_raids_7d = models.PositiveIntegerField(
+        default=0,
+        help_text="Raids attended in last 7 days"
+    )
+    
+    total_raids_30d = models.PositiveIntegerField(
+        default=0,
+        help_text="Total raids available in last 30 days"
+    )
+    
+    attended_raids_30d = models.PositiveIntegerField(
+        default=0,
+        help_text="Raids attended in last 30 days"
+    )
+    
+    total_raids_60d = models.PositiveIntegerField(
+        default=0,
+        help_text="Total raids available in last 60 days"
+    )
+    
+    attended_raids_60d = models.PositiveIntegerField(
+        default=0,
+        help_text="Raids attended in last 60 days"
+    )
+    
+    total_raids_90d = models.PositiveIntegerField(
+        default=0,
+        help_text="Total raids available in last 90 days"
+    )
+    
+    attended_raids_90d = models.PositiveIntegerField(
+        default=0,
+        help_text="Raids attended in last 90 days"
+    )
+    
+    total_raids_lifetime = models.PositiveIntegerField(
+        default=0,
+        help_text="Total raids available since member join"
+    )
+    
+    attended_raids_lifetime = models.PositiveIntegerField(
+        default=0,
+        help_text="Total raids attended since member join"
+    )
+    
+    # Voting eligibility
+    is_voting_eligible = models.BooleanField(
+        default=False,
+        help_text="Whether member is eligible to vote (≥15% attendance in 30 days)"
+    )
+    
+    # Streak tracking
+    current_attendance_streak = models.PositiveIntegerField(
+        default=0,
+        help_text="Current consecutive raids attended"
+    )
+    
+    longest_attendance_streak = models.PositiveIntegerField(
+        default=0,
+        help_text="Longest consecutive raids attended streak"
+    )
+    
+    # Timestamps
+    last_updated = models.DateTimeField(
+        auto_now=True,
+        help_text="When this summary was last updated"
+    )
+    
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="When this summary was first created"
+    )
+    
+    class Meta:
+        ordering = ['-summary_date', '-attendance_rate_30d']
+        indexes = [
+            models.Index(fields=['user', 'summary_date']),
+            models.Index(fields=['summary_date']),
+            models.Index(fields=['attendance_rate_30d']),
+            models.Index(fields=['attendance_rate_90d']),
+            models.Index(fields=['is_voting_eligible']),
+            models.Index(fields=['user', '-summary_date']),
+        ]
+        unique_together = ['user', 'summary_date']
+        verbose_name = "Member Attendance Summary"
+        verbose_name_plural = "Member Attendance Summaries"
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.summary_date} (30d: {self.attendance_rate_30d}%)"
+    
+    @property
+    def voting_status_display(self):
+        """Human-readable voting eligibility status"""
+        if self.is_voting_eligible:
+            return f"Eligible ({self.attendance_rate_30d}% in 30d)"
+        else:
+            needed = Decimal('15.00') - self.attendance_rate_30d
+            if needed > 0:
+                return f"Ineligible (need {needed:.1f}% more)"
+            else:
+                return "Eligible"
+    
+    @property
+    def attendance_trend(self):
+        """Calculate attendance trend direction"""
+        if self.attendance_rate_7d > self.attendance_rate_30d:
+            return "improving"
+        elif self.attendance_rate_7d < self.attendance_rate_30d:
+            return "declining"
+        else:
+            return "stable"
+    
+    def get_period_summary(self, period='30d'):
+        """Get attendance summary for a specific period"""
+        period_mapping = {
+            '7d': (self.attended_raids_7d, self.total_raids_7d, self.attendance_rate_7d),
+            '30d': (self.attended_raids_30d, self.total_raids_30d, self.attendance_rate_30d),
+            '60d': (self.attended_raids_60d, self.total_raids_60d, self.attendance_rate_60d),
+            '90d': (self.attended_raids_90d, self.total_raids_90d, self.attendance_rate_90d),
+            'lifetime': (self.attended_raids_lifetime, self.total_raids_lifetime, self.attendance_rate_lifetime),
+        }
+        
+        if period not in period_mapping:
+            raise ValueError(f"Invalid period '{period}'. Must be one of: {list(period_mapping.keys())}")
+        
+        attended, total, rate = period_mapping[period]
+        return {
+            'attended': attended,
+            'total': total,
+            'rate': rate,
+            'percentage': f"{rate:.1f}%"
+        }
+    
+    @classmethod
+    def get_voting_eligible_members(cls, date=None):
+        """Get all members eligible to vote as of a specific date"""
+        if date is None:
+            date = timezone.now().date()
+        
+        return cls.objects.filter(
+            summary_date=date,
+            is_voting_eligible=True
+        ).select_related('user')
+    
+    @classmethod
+    def get_attendance_leaderboard(cls, period='30d', limit=10, date=None):
+        """Get attendance leaderboard for a specific period"""
+        if date is None:
+            date = timezone.now().date()
+        
+        period_field_mapping = {
+            '7d': 'attendance_rate_7d',
+            '30d': 'attendance_rate_30d',
+            '60d': 'attendance_rate_60d',
+            '90d': 'attendance_rate_90d',
+            'lifetime': 'attendance_rate_lifetime',
+        }
+        
+        if period not in period_field_mapping:
+            raise ValueError(f"Invalid period '{period}'. Must be one of: {list(period_field_mapping.keys())}")
+        
+        order_field = f"-{period_field_mapping[period]}"
+        
+        return cls.objects.filter(
+            summary_date=date
+        ).select_related('user').order_by(order_field)[:limit]
+    
+    @classmethod
+    def calculate_attendance_rate(cls, attended_count, total_count):
+        """Calculate attendance rate as percentage"""
+        if total_count == 0:
+            return Decimal('0.00')
+        return (Decimal(attended_count) / Decimal(total_count)) * 100
+    
+    @classmethod
+    def get_or_create_for_user_date(cls, user, date=None):
+        """Get or create attendance summary for user on specific date"""
+        if date is None:
+            date = timezone.now().date()
+        
+        summary, created = cls.objects.get_or_create(
+            user=user,
+            summary_date=date,
+            defaults={
+                'attendance_rate_7d': Decimal('0.00'),
+                'attendance_rate_30d': Decimal('0.00'),
+                'attendance_rate_60d': Decimal('0.00'),
+                'attendance_rate_90d': Decimal('0.00'),
+                'attendance_rate_lifetime': Decimal('0.00'),
+                'is_voting_eligible': False,
+            }
+        )
+        
+        return summary, created

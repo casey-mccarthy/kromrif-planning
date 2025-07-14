@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from ..models import Character, Rank, CharacterOwnership, Event, Raid, RaidAttendance, Item, LootDistribution, LootAuditLog
+from ..models import Character, Rank, CharacterOwnership, Event, Raid, RaidAttendance, Item, LootDistribution, LootAuditLog, MemberAttendanceSummary
 
 User = get_user_model()
 
@@ -706,3 +706,178 @@ class AuditLogFilterSerializer(serializers.Serializer):
         default=100,
         help_text="Maximum number of results to return"
     )
+
+
+class AttendanceSummaryListSerializer(serializers.ModelSerializer):
+    """
+    Compact serializer for attendance summary listings and leaderboards.
+    """
+    user = serializers.StringRelatedField()
+    username = serializers.CharField(source='user.username', read_only=True)
+    voting_status_display = serializers.CharField(read_only=True)
+    attendance_trend = serializers.CharField(read_only=True)
+    
+    class Meta:
+        model = MemberAttendanceSummary
+        fields = [
+            'id', 'user', 'username', 'summary_date',
+            'attendance_rate_7d', 'attendance_rate_30d', 
+            'attendance_rate_60d', 'attendance_rate_90d', 'attendance_rate_lifetime',
+            'is_voting_eligible', 'voting_status_display',
+            'current_attendance_streak', 'longest_attendance_streak',
+            'attendance_trend', 'last_updated'
+        ]
+
+
+class AttendanceSummaryDetailSerializer(serializers.ModelSerializer):
+    """
+    Detailed serializer for individual attendance summaries.
+    """
+    user = serializers.StringRelatedField(read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
+    user_id = serializers.IntegerField(source='user.id', read_only=True)
+    voting_status_display = serializers.CharField(read_only=True)
+    attendance_trend = serializers.CharField(read_only=True)
+    
+    # Period summaries with percentage and counts
+    period_7d = serializers.SerializerMethodField()
+    period_30d = serializers.SerializerMethodField()
+    period_60d = serializers.SerializerMethodField()
+    period_90d = serializers.SerializerMethodField()
+    period_lifetime = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = MemberAttendanceSummary
+        fields = [
+            'id', 'user', 'username', 'user_id', 'summary_date',
+            # Individual rates
+            'attendance_rate_7d', 'attendance_rate_30d', 
+            'attendance_rate_60d', 'attendance_rate_90d', 'attendance_rate_lifetime',
+            # Raw counts
+            'total_raids_7d', 'attended_raids_7d',
+            'total_raids_30d', 'attended_raids_30d',
+            'total_raids_60d', 'attended_raids_60d',
+            'total_raids_90d', 'attended_raids_90d',
+            'total_raids_lifetime', 'attended_raids_lifetime',
+            # Period summaries
+            'period_7d', 'period_30d', 'period_60d', 'period_90d', 'period_lifetime',
+            # Eligibility and streaks
+            'is_voting_eligible', 'voting_status_display',
+            'current_attendance_streak', 'longest_attendance_streak',
+            'attendance_trend',
+            # Timestamps
+            'last_updated', 'created_at'
+        ]
+    
+    def get_period_7d(self, obj):
+        return {
+            'rate': obj.attendance_rate_7d,
+            'attended': obj.attended_raids_7d,
+            'total': obj.total_raids_7d,
+            'period': '7 days'
+        }
+    
+    def get_period_30d(self, obj):
+        return {
+            'rate': obj.attendance_rate_30d,
+            'attended': obj.attended_raids_30d,
+            'total': obj.total_raids_30d,
+            'period': '30 days'
+        }
+    
+    def get_period_60d(self, obj):
+        return {
+            'rate': obj.attendance_rate_60d,
+            'attended': obj.attended_raids_60d,
+            'total': obj.total_raids_60d,
+            'period': '60 days'
+        }
+    
+    def get_period_90d(self, obj):
+        return {
+            'rate': obj.attendance_rate_90d,
+            'attended': obj.attended_raids_90d,
+            'total': obj.total_raids_90d,
+            'period': '90 days'
+        }
+    
+    def get_period_lifetime(self, obj):
+        return {
+            'rate': obj.attendance_rate_lifetime,
+            'attended': obj.attended_raids_lifetime,
+            'total': obj.total_raids_lifetime,
+            'period': 'lifetime'
+        }
+
+
+class AttendanceStatsSerializer(serializers.Serializer):
+    """
+    Serializer for attendance statistics and aggregated data.
+    """
+    total_members = serializers.IntegerField(help_text="Total members with attendance data")
+    voting_eligible_count = serializers.IntegerField(help_text="Number of voting eligible members")
+    voting_eligible_percentage = serializers.DecimalField(max_digits=5, decimal_places=2, help_text="Percentage of voting eligible members")
+    
+    average_attendance_30d = serializers.DecimalField(max_digits=5, decimal_places=2, help_text="Average 30-day attendance rate")
+    average_attendance_90d = serializers.DecimalField(max_digits=5, decimal_places=2, help_text="Average 90-day attendance rate")
+    average_attendance_lifetime = serializers.DecimalField(max_digits=5, decimal_places=2, help_text="Average lifetime attendance rate")
+    
+    highest_streak = serializers.IntegerField(help_text="Longest attendance streak across all members")
+    active_streaks = serializers.IntegerField(help_text="Number of members with active streaks")
+    
+    top_performers_30d = AttendanceSummaryListSerializer(many=True, help_text="Top 5 performers by 30-day rate")
+    recent_updates = serializers.DateTimeField(help_text="Most recent summary update timestamp")
+
+
+class AttendanceLeaderboardSerializer(serializers.Serializer):
+    """
+    Serializer for attendance leaderboard queries.
+    """
+    period = serializers.ChoiceField(
+        choices=['7d', '30d', '60d', '90d', 'lifetime'],
+        default='30d',
+        help_text="Time period for leaderboard (7d, 30d, 60d, 90d, lifetime)"
+    )
+    limit = serializers.IntegerField(
+        default=10,
+        min_value=1,
+        max_value=100,
+        help_text="Number of top performers to return (1-100)"
+    )
+    date = serializers.DateField(
+        required=False,
+        help_text="Specific date for historical leaderboard (YYYY-MM-DD)"
+    )
+    voting_eligible_only = serializers.BooleanField(
+        default=False,
+        help_text="Only include voting eligible members"
+    )
+
+
+class UserAttendanceQuerySerializer(serializers.Serializer):
+    """
+    Serializer for querying individual user attendance.
+    """
+    user_id = serializers.IntegerField(
+        required=False,
+        help_text="User ID to query attendance for"
+    )
+    username = serializers.CharField(
+        required=False,
+        help_text="Username to query attendance for"
+    )
+    date_from = serializers.DateField(
+        required=False,
+        help_text="Start date for attendance history (YYYY-MM-DD)"
+    )
+    date_to = serializers.DateField(
+        required=False,
+        help_text="End date for attendance history (YYYY-MM-DD)"
+    )
+    
+    def validate(self, data):
+        if not data.get('user_id') and not data.get('username'):
+            raise serializers.ValidationError(
+                "Either user_id or username must be provided"
+            )
+        return data
