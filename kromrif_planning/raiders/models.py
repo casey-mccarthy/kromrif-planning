@@ -113,6 +113,16 @@ class Character(models.Model):
         help_text="When this character was last updated"
     )
     
+    # Main/Alt character relationships
+    main_character = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='alt_characters',
+        help_text="Main character if this is an alt (null if this is a main character)"
+    )
+    
     class Meta:
         ordering = ['name']
         indexes = [
@@ -134,6 +144,48 @@ class Character(models.Model):
         if self.name:
             self.name = self.name.strip().title()
         super().save(*args, **kwargs)
+    
+    # Main/Alt character helper methods
+    @property
+    def is_main(self):
+        """True if this is a main character (no main_character set)."""
+        return self.main_character is None
+    
+    @property
+    def is_alt(self):
+        """True if this is an alt character (has main_character set)."""
+        return self.main_character is not None
+    
+    def get_main_character(self):
+        """Get the main character for this character (returns self if already main)."""
+        return self.main_character if self.main_character else self
+    
+    def get_all_alts(self):
+        """Get all alt characters for this character (only works if this is a main character)."""
+        if self.is_alt:
+            # If this is an alt, delegate to the main character
+            return self.main_character.get_all_alts()
+        return self.alt_characters.all()
+    
+    def get_character_family(self):
+        """Get all characters in this character's family (main + all alts)."""
+        main_char = self.get_main_character()
+        # Use a queryset union to combine main character and all alts
+        main_qs = Character.objects.filter(id=main_char.id)
+        alts_qs = main_char.get_all_alts()
+        return main_qs.union(alts_qs)
+    
+    def clean(self):
+        """Validate the character data."""
+        super().clean()
+        
+        # Ensure character can't be its own main character
+        if self.main_character and self.main_character.id == self.id:
+            raise ValidationError("Character cannot be its own main character")
+        
+        # Ensure alt characters can't have their own alts (no nested alt relationships)
+        if self.main_character and self.main_character.main_character:
+            raise ValidationError("Alt characters cannot have their own alt characters")
     
 
 

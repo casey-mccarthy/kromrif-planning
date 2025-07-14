@@ -101,6 +101,40 @@ class CharacterViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(characters, many=True)
         return Response(serializer.data)
     
+    @action(detail=True, methods=['get'])
+    def family(self, request, pk=None):
+        """Get all characters in this character's family (main + alts)."""
+        character = self.get_object()
+        family = character.get_character_family()
+        serializer = CharacterListSerializer(family, many=True)
+        return Response({
+            'main_character': character.get_main_character().name,
+            'family_size': family.count(),
+            'characters': serializer.data
+        })
+    
+    @action(detail=False, methods=['get'])
+    def families(self, request):
+        """Get all character families grouped together."""
+        # Get all main characters with their alts
+        main_characters = Character.objects.filter(
+            main_character__isnull=True
+        ).prefetch_related('alt_characters')
+        
+        families = []
+        for main_char in main_characters:
+            alt_chars = main_char.alt_characters.all()
+            families.append({
+                'main_character': CharacterListSerializer(main_char).data,
+                'alt_characters': CharacterListSerializer(alt_chars, many=True).data,
+                'family_size': 1 + alt_chars.count(),
+                'owner': main_char.user.username if main_char.user else None
+            })
+        
+        return Response({
+            'total_families': len(families),
+            'families': families
+        })
     
     @action(detail=False, methods=['post'], permission_classes=[permissions.IsAdminUser])
     def transfer(self, request):

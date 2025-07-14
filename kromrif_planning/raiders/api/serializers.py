@@ -25,13 +25,31 @@ class RankSerializer(serializers.ModelSerializer):
 
 class CharacterListSerializer(serializers.ModelSerializer):
     user = serializers.StringRelatedField()
+    main_character = serializers.StringRelatedField()
+    character_type = serializers.CharField(source='get_character_type_display', read_only=True)
+    is_main = serializers.BooleanField(read_only=True)
+    is_alt = serializers.BooleanField(read_only=True)
     
     class Meta:
         model = Character
         fields = [
             'id', 'name', 'character_class', 'level', 'status',
-            'user', 'is_active', 'created_at'
+            'user', 'main_character', 'character_type', 'is_main', 'is_alt',
+            'is_active', 'created_at'
         ]
+    
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # Add character type display
+        if instance.is_main:
+            alt_count = instance.alt_characters.count()
+            if alt_count > 0:
+                data['character_type'] = f"Main ({alt_count} alt{'s' if alt_count != 1 else ''})"
+            else:
+                data['character_type'] = "Main"
+        else:
+            data['character_type'] = f"Alt of {instance.main_character.name}"
+        return data
 
 
 class CharacterDetailSerializer(serializers.ModelSerializer):
@@ -39,20 +57,46 @@ class CharacterDetailSerializer(serializers.ModelSerializer):
         queryset=User.objects.all(),
         default=serializers.CurrentUserDefault()
     )
+    main_character = serializers.PrimaryKeyRelatedField(
+        queryset=Character.objects.filter(main_character__isnull=True),
+        required=False,
+        allow_null=True
+    )
     ownership_history = serializers.SerializerMethodField()
+    alt_characters = serializers.SerializerMethodField()
+    character_family = serializers.SerializerMethodField()
+    is_main = serializers.BooleanField(read_only=True)
+    is_alt = serializers.BooleanField(read_only=True)
     
     class Meta:
         model = Character
         fields = [
             'id', 'name', 'character_class', 'level', 'status',
-            'user', 'description', 'is_active', 'ownership_history',
-            'created_at', 'updated_at'
+            'user', 'main_character', 'description', 'is_active', 
+            'is_main', 'is_alt', 'alt_characters', 'character_family',
+            'ownership_history', 'created_at', 'updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at']
     
     def get_ownership_history(self, obj):
         history = obj.ownership_history.all()[:5]  # Last 5 transfers
         return CharacterOwnershipSerializer(history, many=True).data
+    
+    def get_alt_characters(self, obj):
+        """Get all alt characters for this character."""
+        if obj.is_main:
+            alts = obj.alt_characters.all()
+            return CharacterListSerializer(alts, many=True).data
+        else:
+            # If this is an alt, return all other alts from the same main character
+            main_char = obj.main_character
+            alts = main_char.alt_characters.exclude(id=obj.id)
+            return CharacterListSerializer(alts, many=True).data
+    
+    def get_character_family(self, obj):
+        """Get all characters in this character's family (main + alts)."""
+        family = obj.get_character_family()
+        return CharacterListSerializer(family, many=True).data
     
     def create(self, validated_data):
         character = super().create(validated_data)

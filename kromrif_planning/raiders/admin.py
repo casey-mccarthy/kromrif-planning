@@ -44,14 +44,19 @@ class RankAdmin(admin.ModelAdmin):
 
 @admin.register(Character)
 class CharacterAdmin(admin.ModelAdmin):
-    list_display = ['name', 'character_class', 'level', 'status', 'user', 'is_active', 'created_at']
-    list_filter = ['character_class', 'status', 'is_active', 'level', 'created_at']
+    list_display = ['name', 'character_class', 'level', 'status', 'user', 'character_type', 'is_active', 'created_at']
+    list_filter = ['character_class', 'status', 'is_active', 'level', 'main_character', 'created_at']
     search_fields = ['name', 'user__username', 'user__email', 'description']
     ordering = ['name']
+    autocomplete_fields = ['main_character']
     
     fieldsets = (
         (None, {
             'fields': ('name', 'character_class', 'level', 'status', 'user')
+        }),
+        ('Character Relationships', {
+            'fields': ('main_character',),
+            'description': 'Set main character if this is an alt character. Leave blank if this is a main character.'
         }),
         ('Details', {
             'fields': ('description', 'is_active'),
@@ -65,9 +70,36 @@ class CharacterAdmin(admin.ModelAdmin):
     
     readonly_fields = ['created_at', 'updated_at']
     
+    def character_type(self, obj):
+        """Display whether this is a main character or alt."""
+        if obj.is_main:
+            alt_count = obj.alt_characters.count()
+            if alt_count > 0:
+                return format_html(
+                    '<strong>Main</strong> ({} alt{})',
+                    alt_count,
+                    's' if alt_count != 1 else ''
+                )
+            return format_html('<strong>Main</strong>')
+        else:
+            return format_html(
+                '<em>Alt of <a href="/admin/raiders/character/{}/change/">{}</a></em>',
+                obj.main_character.id,
+                obj.main_character.name
+            )
+    character_type.short_description = 'Character Type'
+    character_type.admin_order_field = 'main_character'
+    
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        return qs.select_related('user')
+        return qs.select_related('user', 'main_character').prefetch_related('alt_characters')
+    
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        """Customize the main_character field to only show main characters."""
+        if db_field.name == "main_character":
+            # Only show characters that are main characters (don't have a main_character themselves)
+            kwargs["queryset"] = Character.objects.filter(main_character__isnull=True)
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
     
 
 
