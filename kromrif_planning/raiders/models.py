@@ -1348,10 +1348,19 @@ class MemberAttendanceSummary(models.Model):
     
     @classmethod
     def get_or_create_for_user_date(cls, user, date=None):
-        """Get or create attendance summary for user on specific date"""
+        """
+        Get or create attendance summary for user and specific date.
+        
+        Args:
+            user: User instance
+            date: Date for summary (defaults to today)
+            
+        Returns:
+            tuple: (MemberAttendanceSummary instance, created boolean)
+        """
         if date is None:
             date = timezone.now().date()
-        
+            
         summary, created = cls.objects.get_or_create(
             user=user,
             summary_date=date,
@@ -1361,8 +1370,497 @@ class MemberAttendanceSummary(models.Model):
                 'attendance_rate_60d': Decimal('0.00'),
                 'attendance_rate_90d': Decimal('0.00'),
                 'attendance_rate_lifetime': Decimal('0.00'),
-                'is_voting_eligible': False,
             }
         )
         
         return summary, created
+
+
+class Application(models.Model):
+    """
+    Tracks recruitment applications from potential guild members.
+    Supports comprehensive applicant information and status workflow.
+    """
+    
+    # Applicant contact information
+    applicant_name = models.CharField(
+        max_length=100,
+        help_text="Real name or preferred name of the applicant"
+    )
+    
+    applicant_email = models.EmailField(
+        help_text="Email address for contact"
+    )
+    
+    discord_username = models.CharField(
+        max_length=100,
+        help_text="Discord username for communication"
+    )
+    
+    # Character information
+    character_name = models.CharField(
+        max_length=64,
+        validators=[MinLengthValidator(2)],
+        help_text="Primary character name for the application"
+    )
+    
+    character_class = models.CharField(
+        max_length=32,
+        help_text="Character class (e.g., Warrior, Cleric, Wizard)"
+    )
+    
+    character_level = models.PositiveIntegerField(
+        help_text="Current character level"
+    )
+    
+    character_spec = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Character specialization or build (optional)"
+    )
+    
+    # Application content
+    guild_experience = models.TextField(
+        help_text="Previous guild experience and EverQuest history"
+    )
+    
+    raid_experience = models.TextField(
+        help_text="Raid experience and knowledge of current content"
+    )
+    
+    play_schedule = models.TextField(
+        help_text="Available play times and raid schedule compatibility"
+    )
+    
+    motivation = models.TextField(
+        help_text="Why they want to join the guild"
+    )
+    
+    references = models.TextField(
+        blank=True,
+        help_text="References from current or former guild members (optional)"
+    )
+    
+    additional_info = models.TextField(
+        blank=True,
+        help_text="Any additional information the applicant wants to share"
+    )
+    
+    # Application status workflow
+    APPLICATION_STATUS_CHOICES = [
+        ('submitted', 'Submitted'),
+        ('under_review', 'Under Review'),
+        ('officer_approved', 'Officer Approved'),
+        ('voting_open', 'Voting Open'),
+        ('voting_closed', 'Voting Closed'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('withdrawn', 'Withdrawn'),
+        ('expired', 'Expired'),
+    ]
+    
+    status = models.CharField(
+        max_length=20,
+        choices=APPLICATION_STATUS_CHOICES,
+        default='submitted',
+        help_text="Current status of the application"
+    )
+    
+    # Timeline tracking
+    submitted_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="When the application was submitted"
+    )
+    
+    reviewed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the application was first reviewed by officers"
+    )
+    
+    voting_opened_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When member voting was opened"
+    )
+    
+    voting_deadline = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Deadline for voting (typically 48 hours after opening)"
+    )
+    
+    decision_made_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the final decision was made"
+    )
+    
+    # Staff tracking
+    reviewed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='applications_reviewed',
+        help_text="Officer who reviewed the application"
+    )
+    
+    decision_made_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='applications_decided',
+        help_text="Officer who made the final decision"
+    )
+    
+    # Review notes and feedback
+    officer_notes = models.TextField(
+        blank=True,
+        help_text="Internal notes from officers (not visible to applicant)"
+    )
+    
+    rejection_reason = models.TextField(
+        blank=True,
+        help_text="Reason for rejection (shared with applicant)"
+    )
+    
+    # Associated user account (created after approval)
+    approved_user = models.OneToOneField(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='application',
+        help_text="User account created after approval"
+    )
+    
+    # Discord integration
+    discord_message_id = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Discord message ID for application summary"
+    )
+    
+    discord_thread_id = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Discord thread ID for discussion"
+    )
+    
+    # Metadata
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        help_text="When the application was last updated"
+    )
+    
+    ip_address = models.GenericIPAddressField(
+        null=True,
+        blank=True,
+        help_text="IP address from which application was submitted"
+    )
+    
+    class Meta:
+        ordering = ['-submitted_at']
+        indexes = [
+            models.Index(fields=['status', '-submitted_at']),
+            models.Index(fields=['character_name']),
+            models.Index(fields=['applicant_email']),
+            models.Index(fields=['discord_username']),
+            models.Index(fields=['voting_deadline']),
+            models.Index(fields=['reviewed_by', '-submitted_at']),
+            models.Index(fields=['-submitted_at']),
+        ]
+        verbose_name = "Guild Application"
+        verbose_name_plural = "Guild Applications"
+        permissions = [
+            ('review_applications', 'Can review and process applications'),
+            ('manage_applications', 'Can manage all aspects of applications'),
+            ('vote_on_applications', 'Can vote on applications'),
+            ('view_application_votes', 'Can view voting results'),
+            ('view_sensitive_application_info', 'Can view sensitive applicant information'),
+        ]
+    
+    def __str__(self):
+        return f"{self.character_name} ({self.applicant_name}) - {self.get_status_display()}"
+    
+    def save(self, *args, **kwargs):
+        """Custom save to handle status transitions and timeline updates."""
+        # Auto-set reviewed_at when status changes to under_review
+        if self.status in ['under_review', 'officer_approved'] and not self.reviewed_at:
+            self.reviewed_at = timezone.now()
+        
+        # Auto-set voting_opened_at when voting opens
+        if self.status == 'voting_open' and not self.voting_opened_at:
+            self.voting_opened_at = timezone.now()
+            # Set voting deadline to 48 hours from now if not already set
+            if not self.voting_deadline:
+                self.voting_deadline = timezone.now() + timezone.timedelta(hours=48)
+        
+        # Auto-set decision_made_at when final decision is made
+        if self.status in ['approved', 'rejected'] and not self.decision_made_at:
+            self.decision_made_at = timezone.now()
+        
+        super().save(*args, **kwargs)
+    
+    @property
+    def is_voting_active(self):
+        """Check if voting is currently active for this application."""
+        if self.status != 'voting_open':
+            return False
+        if not self.voting_deadline:
+            return True
+        return timezone.now() < self.voting_deadline
+    
+    @property
+    def voting_time_remaining(self):
+        """Get time remaining for voting (returns timedelta or None)."""
+        if not self.is_voting_active or not self.voting_deadline:
+            return None
+        remaining = self.voting_deadline - timezone.now()
+        return remaining if remaining.total_seconds() > 0 else None
+    
+    def get_vote_summary(self):
+        """Get summary of votes cast for this application."""
+        from django.db.models import Count
+        
+        votes = self.votes.aggregate(
+            total_votes=Count('id'),
+            yes_votes=Count('id', filter=models.Q(vote='yes')),
+            no_votes=Count('id', filter=models.Q(vote='no')),
+            abstain_votes=Count('id', filter=models.Q(vote='abstain')),
+        )
+        
+        # Calculate weighted votes if attendance weights are used
+        total_weight = sum(vote.vote_weight for vote in self.votes.all())
+        yes_weight = sum(vote.vote_weight for vote in self.votes.filter(vote='yes'))
+        no_weight = sum(vote.vote_weight for vote in self.votes.filter(vote='no'))
+        
+        votes.update({
+            'total_weight': total_weight,
+            'yes_weight': yes_weight,
+            'no_weight': no_weight,
+            'approval_percentage': (yes_weight / total_weight * 100) if total_weight > 0 else 0,
+        })
+        
+        return votes
+    
+    def can_user_vote(self, user):
+        """Check if a user is eligible to vote on this application."""
+        if self.status != 'voting_open' or not self.is_voting_active:
+            return False
+        
+        # Check if user has already voted
+        if self.votes.filter(voter=user).exists():
+            return False
+        
+        # Check voting eligibility based on attendance
+        try:
+            attendance_summary = user.attendance_summaries.latest('summary_date')
+            return attendance_summary.is_voting_eligible
+        except MemberAttendanceSummary.DoesNotExist:
+            return False
+    
+    def calculate_vote_weight(self, user):
+        """Calculate vote weight for a user based on attendance."""
+        try:
+            attendance_summary = user.attendance_summaries.latest('summary_date')
+            
+            # Base weight of 1.0 for eligible voters
+            if not attendance_summary.is_voting_eligible:
+                return 0.0
+            
+            # Bonus weight based on 30-day attendance rate
+            # 15-50% attendance: 1.0 weight
+            # 51-75% attendance: 1.5 weight  
+            # 76-100% attendance: 2.0 weight
+            attendance_rate = float(attendance_summary.attendance_rate_30d)
+            
+            if attendance_rate >= 76:
+                return 2.0
+            elif attendance_rate >= 51:
+                return 1.5
+            else:
+                return 1.0
+                
+        except MemberAttendanceSummary.DoesNotExist:
+            return 0.0
+    
+    @classmethod
+    def get_active_applications(cls):
+        """Get applications that are currently in active states."""
+        active_statuses = ['submitted', 'under_review', 'officer_approved', 'voting_open']
+        return cls.objects.filter(status__in=active_statuses)
+    
+    @classmethod
+    def get_voting_applications(cls):
+        """Get applications currently open for voting."""
+        return cls.objects.filter(
+            status='voting_open',
+            voting_deadline__gt=timezone.now()
+        )
+
+
+class ApplicationVote(models.Model):
+    """
+    Tracks individual member votes on guild applications.
+    Includes attendance-based vote weighting and eligibility checks.
+    """
+    
+    application = models.ForeignKey(
+        Application,
+        on_delete=models.CASCADE,
+        related_name='votes',
+        help_text="The application being voted on"
+    )
+    
+    voter = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='application_votes',
+        help_text="The user casting the vote"
+    )
+    
+    VOTE_CHOICES = [
+        ('yes', 'Yes - Approve'),
+        ('no', 'No - Reject'),
+        ('abstain', 'Abstain'),
+    ]
+    
+    vote = models.CharField(
+        max_length=10,
+        choices=VOTE_CHOICES,
+        help_text="The vote choice"
+    )
+    
+    vote_weight = models.DecimalField(
+        max_digits=3,
+        decimal_places=1,
+        default=Decimal('1.0'),
+        help_text="Weight of this vote based on attendance"
+    )
+    
+    # Voting context and reasoning
+    reasoning = models.TextField(
+        blank=True,
+        help_text="Optional reasoning for the vote (visible to officers)"
+    )
+    
+    # Attendance snapshot at time of voting
+    attendance_rate_30d = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        help_text="Voter's 30-day attendance rate at time of vote"
+    )
+    
+    was_voting_eligible = models.BooleanField(
+        default=True,
+        help_text="Whether voter was eligible at time of vote"
+    )
+    
+    # Timestamps
+    voted_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="When the vote was cast"
+    )
+    
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        help_text="When the vote was last updated"
+    )
+    
+    # Metadata
+    ip_address = models.GenericIPAddressField(
+        null=True,
+        blank=True,
+        help_text="IP address from which vote was cast"
+    )
+    
+    class Meta:
+        ordering = ['-voted_at']
+        indexes = [
+            models.Index(fields=['application', 'vote']),
+            models.Index(fields=['voter', '-voted_at']),
+            models.Index(fields=['vote', 'vote_weight']),
+            models.Index(fields=['-voted_at']),
+        ]
+        unique_together = ['application', 'voter']
+        verbose_name = "Application Vote"
+        verbose_name_plural = "Application Votes"
+        permissions = [
+            ('view_application_vote_details', 'Can view detailed vote information'),
+            ('manage_application_votes', 'Can manage and modify application votes'),
+        ]
+    
+    def __str__(self):
+        return f"{self.voter.username} voted {self.vote} on {self.application.character_name} (weight: {self.vote_weight})"
+    
+    def save(self, *args, **kwargs):
+        """Custom save to capture attendance data and calculate vote weight."""
+        if not self.pk:  # Only on creation
+            # Capture voter's current attendance data
+            try:
+                attendance_summary = self.voter.attendance_summaries.latest('summary_date')
+                self.attendance_rate_30d = attendance_summary.attendance_rate_30d
+                self.was_voting_eligible = attendance_summary.is_voting_eligible
+                
+                # Calculate vote weight
+                self.vote_weight = Decimal(str(self.application.calculate_vote_weight(self.voter)))
+                
+            except MemberAttendanceSummary.DoesNotExist:
+                # Fallback for users without attendance data
+                self.attendance_rate_30d = Decimal('0.00')
+                self.was_voting_eligible = False
+                self.vote_weight = Decimal('0.0')
+        
+        super().save(*args, **kwargs)
+    
+    def clean(self):
+        """Validate vote eligibility and timing."""
+        super().clean()
+        
+        # Check if voting is still active
+        if not self.application.is_voting_active:
+            raise ValidationError("Voting is not currently active for this application.")
+        
+        # Check if user is eligible to vote
+        if not self.application.can_user_vote(self.voter):
+            raise ValidationError("User is not eligible to vote on this application.")
+    
+    @property
+    def is_weighted_vote(self):
+        """Check if this vote has additional weight beyond base 1.0."""
+        return self.vote_weight > Decimal('1.0')
+    
+    @property
+    def vote_display_with_weight(self):
+        """Get formatted vote display including weight if > 1.0."""
+        vote_text = self.get_vote_display()
+        if self.vote_weight > Decimal('1.0'):
+            return f"{vote_text} (weight: {self.vote_weight})"
+        return vote_text
+    
+    @classmethod
+    def get_vote_summary_for_application(cls, application):
+        """Get detailed vote summary for an application."""
+        votes = cls.objects.filter(application=application)
+        
+        summary = {
+            'total_votes': votes.count(),
+            'total_weight': sum(vote.vote_weight for vote in votes),
+            'yes_votes': votes.filter(vote='yes').count(),
+            'no_votes': votes.filter(vote='no').count(),
+            'abstain_votes': votes.filter(vote='abstain').count(),
+            'yes_weight': sum(vote.vote_weight for vote in votes.filter(vote='yes')),
+            'no_weight': sum(vote.vote_weight for vote in votes.filter(vote='no')),
+            'abstain_weight': sum(vote.vote_weight for vote in votes.filter(vote='abstain')),
+        }
+        
+        # Calculate approval percentage
+        if summary['total_weight'] > 0:
+            summary['approval_percentage'] = (summary['yes_weight'] / summary['total_weight']) * 100
+        else:
+            summary['approval_percentage'] = 0
+        
+        return summary

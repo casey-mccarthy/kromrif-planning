@@ -254,3 +254,229 @@ class DiscordWebhookPermission(BasePermission):
             return True
         
         return False
+
+
+# ===== RECRUITMENT SYSTEM PERMISSIONS =====
+
+class CanViewApplications(BasePermission):
+    """
+    Permission class for viewing guild applications.
+    Members and above can view basic application info.
+    Officers can view sensitive information.
+    """
+    
+    def has_permission(self, request, view):
+        """Check if user can view applications."""
+        if not request.user or not request.user.is_authenticated:
+            return False
+        
+        # Allow staff users
+        if request.user.is_staff:
+            return True
+        
+        # Check if user is at least a member
+        member_permission = IsMemberOrHigher()
+        return member_permission.has_permission(request, view)
+    
+    def has_object_permission(self, request, view, obj):
+        """Check object-level permissions for viewing applications."""
+        # Basic permission check
+        if not self.has_permission(request, view):
+            return False
+        
+        # Officers can view all details
+        officer_permission = IsOfficerOrHigher()
+        if officer_permission.has_permission(request, view):
+            return True
+        
+        # Applicants can only view their own application
+        if hasattr(obj, 'applicant_email') and hasattr(request.user, 'email'):
+            if obj.applicant_email == request.user.email:
+                return True
+        
+        # Members can view applications in public voting state
+        if hasattr(obj, 'status') and obj.status in ['voting_open', 'approved', 'rejected']:
+            return True
+        
+        return False
+
+
+class CanReviewApplications(BasePermission):
+    """
+    Permission class for reviewing and processing applications.
+    Only officers and above can review applications.
+    """
+    
+    def has_permission(self, request, view):
+        """Check if user can review applications."""
+        if not request.user or not request.user.is_authenticated:
+            return False
+        
+        # Allow staff users
+        if request.user.is_staff:
+            return True
+        
+        # Check if user is an officer
+        officer_permission = IsOfficerOrHigher()
+        return officer_permission.has_permission(request, view)
+
+
+class CanVoteOnApplications(BasePermission):
+    """
+    Permission class for voting on applications.
+    Requires member status and sufficient attendance.
+    """
+    
+    def has_permission(self, request, view):
+        """Check if user can vote on applications."""
+        if not request.user or not request.user.is_authenticated:
+            return False
+        
+        # Allow staff users
+        if request.user.is_staff:
+            return True
+        
+        # Check attendance-based voting eligibility
+        voting_permission = HasAttendanceBasedVoting()
+        return voting_permission.has_permission(request, view)
+    
+    def has_object_permission(self, request, view, obj):
+        """Check if user can vote on specific application."""
+        # Basic permission check
+        if not self.has_permission(request, view):
+            return False
+        
+        # Check if voting is active for this application
+        if hasattr(obj, 'is_voting_active') and not obj.is_voting_active:
+            return False
+        
+        # Check if user can vote (hasn't voted already, etc.)
+        if hasattr(obj, 'can_user_vote'):
+            return obj.can_user_vote(request.user)
+        
+        return True
+
+
+class CanManageRecruitment(BasePermission):
+    """
+    Permission class for full recruitment system management.
+    Officers and above can manage all recruitment activities.
+    """
+    
+    def has_permission(self, request, view):
+        """Check if user can manage recruitment system."""
+        if not request.user or not request.user.is_authenticated:
+            return False
+        
+        # Allow staff users
+        if request.user.is_staff:
+            return True
+        
+        # Check if user is an officer
+        officer_permission = IsOfficerOrHigher()
+        return officer_permission.has_permission(request, view)
+
+
+class ApplicationOwnerOrOfficer(BasePermission):
+    """
+    Permission class that allows application owners or officers to access.
+    Applicants can view/edit their own applications, officers can manage all.
+    """
+    
+    def has_permission(self, request, view):
+        """Basic permission check for authenticated users."""
+        return request.user and request.user.is_authenticated
+    
+    def has_object_permission(self, request, view, obj):
+        """Check if user owns the application or is an officer."""
+        # Allow staff users
+        if request.user.is_staff:
+            return True
+        
+        # Check if user is an officer
+        officer_permission = IsOfficerOrHigher()
+        if officer_permission.has_permission(request, view):
+            return True
+        
+        # Check if user is the applicant (by email match)
+        if hasattr(obj, 'applicant_email') and hasattr(request.user, 'email'):
+            return obj.applicant_email == request.user.email
+        
+        # Check if user has been approved and linked to this application
+        if hasattr(obj, 'approved_user') and obj.approved_user:
+            return obj.approved_user == request.user
+        
+        return False
+
+
+class VotingPermissionsByRole(BasePermission):
+    """
+    Permission class that provides different voting access levels by role:
+    - Officers: Can view all vote details and manage voting
+    - Voting-eligible members: Can vote and view aggregate results  
+    - Regular members: Can view basic voting status
+    - Guests/Applicants: No voting access
+    """
+    
+    def has_permission(self, request, view):
+        """Check basic voting permissions based on user role."""
+        if not request.user or not request.user.is_authenticated:
+            return False
+        
+        # Allow staff users
+        if request.user.is_staff:
+            return True
+        
+        # Check if user is at least a member
+        member_permission = IsMemberOrHigher()
+        return member_permission.has_permission(request, view)
+    
+    def has_object_permission(self, request, view, obj):
+        """Check object-level voting permissions."""
+        # Basic permission check
+        if not self.has_permission(request, view):
+            return False
+        
+        # Officers get full access
+        officer_permission = IsOfficerOrHigher()
+        if officer_permission.has_permission(request, view):
+            return True
+        
+        # Voting-eligible members can vote and see aggregates
+        voting_permission = HasAttendanceBasedVoting()
+        if voting_permission.has_permission(request, view):
+            # Can vote and view aggregate results, but not individual votes
+            if view.action in ['vote', 'view_aggregates']:
+                return True
+        
+        # Regular members can only view basic voting status
+        if view.action in ['view_status']:
+            return True
+        
+        return False
+
+
+class RecruitmentReadOnlyOrOfficer(BasePermission):
+    """
+    Permission class for recruitment endpoints that allows:
+    - Read access for members and above
+    - Write access only for officers and above
+    """
+    
+    def has_permission(self, request, view):
+        """Check permissions based on request method and user role."""
+        if not request.user or not request.user.is_authenticated:
+            return False
+        
+        # Allow staff users
+        if request.user.is_staff:
+            return True
+        
+        # Allow read operations for members
+        if request.method in permissions.SAFE_METHODS:
+            member_permission = IsMemberOrHigher()
+            return member_permission.has_permission(request, view)
+        
+        # Check for officer permissions for write operations
+        officer_permission = IsOfficerOrHigher()
+        return officer_permission.has_permission(request, view)
