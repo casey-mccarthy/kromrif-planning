@@ -3,6 +3,10 @@
  * Enhanced interactivity patterns and helper functions
  */
 
+// Progressive Enhancement Detection
+document.documentElement.classList.remove('no-js');
+document.documentElement.classList.add('js');
+
 // Global HTMX configuration
 document.addEventListener('DOMContentLoaded', function() {
     
@@ -26,11 +30,175 @@ document.addEventListener('DOMContentLoaded', function() {
     setupGlobalEventHandlers();
     
     // Initialize enhanced features
+    initializeProgressiveEnhancement();
     initializeAutoRefresh();
     initializeFormValidation();
     initializeTooltips();
     initializeKeyboardShortcuts();
+    initializeOptimisticUpdates();
 });
+
+/**
+ * Initialize progressive enhancement features
+ */
+function initializeProgressiveEnhancement() {
+    // Add graceful degradation classes
+    document.body.classList.add('js-enabled');
+    
+    // Show JS-only elements
+    document.querySelectorAll('.js-only').forEach(el => {
+        el.style.display = '';
+    });
+    
+    // Hide fallback content
+    document.querySelectorAll('.js-fallback').forEach(el => {
+        el.style.display = 'none';
+    });
+    
+    // Enable enhanced form elements
+    document.querySelectorAll('.js-enhanced').forEach(el => {
+        el.classList.remove('opacity-50', 'pointer-events-none');
+    });
+    
+    // Initialize enhanced navigation
+    initializeEnhancedNavigation();
+    
+    // Initialize enhanced interactions
+    initializeEnhancedInteractions();
+    
+    console.log('Progressive enhancement initialized');
+}
+
+/**
+ * Initialize enhanced navigation with smooth transitions
+ */
+function initializeEnhancedNavigation() {
+    document.querySelectorAll('.nav-link-enhanced').forEach(link => {
+        // Add active state based on current URL
+        if (link.href === window.location.href) {
+            link.classList.add('active');
+        }
+        
+        // Add hover effects
+        link.addEventListener('mouseenter', function() {
+            this.classList.add('hover');
+        });
+        
+        link.addEventListener('mouseleave', function() {
+            this.classList.remove('hover');
+        });
+    });
+}
+
+/**
+ * Initialize enhanced interactions (hover effects, press effects, etc.)
+ */
+function initializeEnhancedInteractions() {
+    // Add enhanced classes to buttons and cards
+    document.querySelectorAll('button:not(.btn-enhanced)').forEach(btn => {
+        btn.classList.add('btn-enhanced', 'press-effect');
+    });
+    
+    document.querySelectorAll('.card:not(.card-enhanced)').forEach(card => {
+        card.classList.add('card-enhanced', 'hover-lift');
+    });
+    
+    // Add focus ring to interactive elements
+    document.querySelectorAll('a, button, input, select, textarea').forEach(el => {
+        if (!el.classList.contains('focus-ring')) {
+            el.classList.add('focus-ring');
+        }
+    });
+}
+
+/**
+ * Initialize optimistic UI updates
+ */
+function initializeOptimisticUpdates() {
+    // Listen for form submissions to provide optimistic feedback
+    document.body.addEventListener('htmx:beforeRequest', function(evt) {
+        const element = evt.detail.elt;
+        const verb = evt.detail.requestConfig.verb;
+        
+        // Apply optimistic update for non-GET requests
+        if (verb !== 'get') {
+            applyOptimisticUpdate(element, verb);
+        }
+    });
+    
+    // Handle successful responses
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        const element = evt.detail.elt;
+        const successful = evt.detail.successful;
+        
+        if (successful) {
+            showOptimisticSuccess(element);
+        } else {
+            showOptimisticError(element);
+        }
+        
+        // Remove optimistic state after animation
+        setTimeout(() => {
+            clearOptimisticState(element);
+        }, 1000);
+    });
+}
+
+/**
+ * Apply optimistic update to element
+ */
+function applyOptimisticUpdate(element, verb) {
+    // Add optimistic update class
+    element.classList.add('optimistic-update');
+    
+    // For delete operations, add visual feedback
+    if (verb === 'delete') {
+        element.style.opacity = '0.5';
+        element.style.transform = 'scale(0.95)';
+    }
+    
+    // For form submissions, disable form temporarily
+    if (element.tagName === 'FORM') {
+        disableForm(element);
+    }
+}
+
+/**
+ * Show optimistic success state
+ */
+function showOptimisticSuccess(element) {
+    element.classList.remove('optimistic-update');
+    element.classList.add('optimistic-success');
+    
+    // Add success animation
+    element.style.animation = 'successPulse 0.6s ease-out';
+}
+
+/**
+ * Show optimistic error state
+ */
+function showOptimisticError(element) {
+    element.classList.remove('optimistic-update');
+    element.classList.add('optimistic-error');
+    
+    // Add error animation
+    element.style.animation = 'errorShake 0.6s ease-out';
+    
+    // Re-enable form if it was disabled
+    if (element.tagName === 'FORM') {
+        enableForm(element);
+    }
+}
+
+/**
+ * Clear optimistic state
+ */
+function clearOptimisticState(element) {
+    element.classList.remove('optimistic-update', 'optimistic-success', 'optimistic-error');
+    element.style.opacity = '';
+    element.style.transform = '';
+    element.style.animation = '';
+}
 
 /**
  * Set up global HTMX event handlers

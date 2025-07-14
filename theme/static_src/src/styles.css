@@ -1,3 +1,311 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Enhanced Interactivity Styles */
+
+/* Base Layer - Core styles that work without JavaScript */
+@layer base {
+  /* Smooth scrolling for all elements */
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  /* Focus styles for accessibility */
+  *:focus {
+    @apply outline-none ring-2 ring-indigo-500 ring-offset-2;
+  }
+  
+  /* Reduced motion support */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* Component Layer - Enhanced component styles */
+@layer components {
+  /* Enhanced Form Elements */
+  .form-input-enhanced {
+    @apply transition-all duration-200 ease-in-out;
+    @apply focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500;
+    @apply hover:border-gray-400;
+  }
+  
+  .form-input-enhanced:invalid {
+    @apply border-red-300 focus:ring-red-500 focus:border-red-500;
+  }
+  
+  /* Enhanced Buttons */
+  .btn-enhanced {
+    @apply transition-all duration-200 ease-in-out;
+    @apply transform active:scale-95;
+    @apply hover:shadow-lg focus:shadow-lg;
+  }
+  
+  .btn-enhanced:disabled {
+    @apply opacity-50 cursor-not-allowed transform-none;
+  }
+  
+  /* Loading States */
+  .loading-skeleton {
+    @apply animate-pulse bg-gray-200 rounded;
+  }
+  
+  .loading-overlay {
+    @apply absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center;
+    @apply transition-opacity duration-200;
+  }
+  
+  .loading-spinner {
+    @apply animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600;
+  }
+  
+  /* Enhanced Cards */
+  .card-enhanced {
+    @apply transition-all duration-300 ease-in-out;
+    @apply hover:shadow-lg hover:-translate-y-1;
+    @apply focus-within:ring-2 focus-within:ring-indigo-500;
+  }
+  
+  /* Modal Animations */
+  .modal-backdrop {
+    @apply fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full;
+    @apply transition-opacity duration-300 ease-in-out;
+  }
+  
+  .modal-backdrop.entering {
+    @apply opacity-0;
+  }
+  
+  .modal-backdrop.entered {
+    @apply opacity-100;
+  }
+  
+  .modal-backdrop.exiting {
+    @apply opacity-0;
+  }
+  
+  .modal-content {
+    @apply transition-all duration-300 ease-in-out;
+    @apply transform;
+  }
+  
+  .modal-content.entering {
+    @apply opacity-0 scale-95 translate-y-4;
+  }
+  
+  .modal-content.entered {
+    @apply opacity-100 scale-100 translate-y-0;
+  }
+  
+  .modal-content.exiting {
+    @apply opacity-0 scale-95 translate-y-4;
+  }
+  
+  /* Enhanced Navigation */
+  .nav-link-enhanced {
+    @apply transition-all duration-200 ease-in-out;
+    @apply relative overflow-hidden;
+  }
+  
+  .nav-link-enhanced::before {
+    @apply absolute inset-x-0 bottom-0 h-0.5 bg-indigo-500;
+    @apply transform scale-x-0 transition-transform duration-200;
+    content: '';
+  }
+  
+  .nav-link-enhanced:hover::before,
+  .nav-link-enhanced:focus::before,
+  .nav-link-enhanced.active::before {
+    @apply scale-x-100;
+  }
+  
+  /* Toast Notifications */
+  .toast {
+    @apply transition-all duration-500 ease-in-out;
+    @apply transform translate-x-full opacity-0;
+  }
+  
+  .toast.show {
+    @apply translate-x-0 opacity-100;
+  }
+  
+  .toast.hide {
+    @apply translate-x-full opacity-0;
+  }
+  
+  /* Enhanced Tables */
+  .table-enhanced tbody tr {
+    @apply transition-colors duration-150 ease-in-out;
+    @apply hover:bg-gray-50 focus-within:bg-gray-50;
+  }
+  
+  .table-enhanced tbody tr:nth-child(odd) {
+    @apply bg-white;
+  }
+  
+  .table-enhanced tbody tr:nth-child(even) {
+    @apply bg-gray-25;
+  }
+  
+  /* Progressive Enhancement - Hide enhanced features when JS is disabled */
+  .no-js .js-only {
+    @apply hidden;
+  }
+  
+  .no-js .js-enhanced {
+    @apply opacity-50 pointer-events-none;
+  }
+  
+  /* Show fallback content when JS is disabled */
+  .no-js .js-fallback {
+    @apply block;
+  }
+  
+  .js-fallback {
+    @apply hidden;
+  }
+}
+
+/* Utilities Layer - Animation and interaction utilities */
+@layer utilities {
+  /* Slide Animations */
+  .slide-enter {
+    @apply transform translate-x-full;
+  }
+  
+  .slide-enter-active {
+    @apply transition-transform duration-300 ease-out;
+    @apply transform translate-x-0;
+  }
+  
+  .slide-exit {
+    @apply transform translate-x-0;
+  }
+  
+  .slide-exit-active {
+    @apply transition-transform duration-300 ease-in;
+    @apply transform translate-x-full;
+  }
+  
+  /* Fade Animations */
+  .fade-enter {
+    @apply opacity-0;
+  }
+  
+  .fade-enter-active {
+    @apply transition-opacity duration-300 ease-out;
+    @apply opacity-100;
+  }
+  
+  .fade-exit {
+    @apply opacity-100;
+  }
+  
+  .fade-exit-active {
+    @apply transition-opacity duration-300 ease-in;
+    @apply opacity-0;
+  }
+  
+  /* Scale Animations */
+  .scale-enter {
+    @apply transform scale-95 opacity-0;
+  }
+  
+  .scale-enter-active {
+    @apply transition-all duration-200 ease-out;
+    @apply transform scale-100 opacity-100;
+  }
+  
+  .scale-exit {
+    @apply transform scale-100 opacity-100;
+  }
+  
+  .scale-exit-active {
+    @apply transition-all duration-200 ease-in;
+    @apply transform scale-95 opacity-0;
+  }
+  
+  /* HTMX Specific Animations */
+  .htmx-added {
+    @apply animate-pulse;
+  }
+  
+  .htmx-settling {
+    @apply transition-all duration-300 ease-in-out;
+  }
+  
+  .htmx-swapping {
+    @apply opacity-50;
+  }
+  
+  /* Loading States */
+  .htmx-indicator {
+    @apply opacity-0 transition-opacity duration-200;
+  }
+  
+  .htmx-request .htmx-indicator,
+  .htmx-request.htmx-indicator {
+    @apply opacity-100;
+  }
+  
+  /* Optimistic UI Updates */
+  .optimistic-update {
+    @apply opacity-75 pointer-events-none;
+  }
+  
+  .optimistic-success {
+    @apply animate-pulse bg-green-50 border-green-200;
+  }
+  
+  .optimistic-error {
+    @apply animate-pulse bg-red-50 border-red-200;
+  }
+  
+  /* Enhanced Hover States */
+  .hover-lift {
+    @apply transition-transform duration-200 ease-out;
+  }
+  
+  .hover-lift:hover {
+    @apply transform -translate-y-1;
+  }
+  
+  /* Interactive feedback */
+  .press-effect {
+    @apply transition-transform duration-150 ease-out;
+  }
+  
+  .press-effect:active {
+    @apply transform scale-95;
+  }
+  
+  /* Enhanced focus styles */
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500;
+  }
+  
+  /* Content state indicators */
+  .content-stale {
+    @apply opacity-75;
+  }
+  
+  .content-loading {
+    @apply animate-pulse;
+  }
+  
+  .content-error {
+    @apply bg-red-50 border-red-200;
+  }
+  
+  .content-success {
+    @apply bg-green-50 border-green-200;
+  }
+}
