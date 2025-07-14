@@ -16,4 +16,6 @@ urlpatterns = [
     *router.urls,
     # Include raiders API URLs
     path("raiders/", include("kromrif_planning.raiders.api.urls")),
+    # Include Discord bot API URLs
+    path("discord/", include("kromrif_planning.raiders.api.discord_urls")),
 ]

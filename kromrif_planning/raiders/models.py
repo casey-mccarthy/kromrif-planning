@@ -119,6 +119,12 @@ class Character(models.Model):
             models.Index(fields=['user', 'is_active']),
             models.Index(fields=['character_class']),
         ]
+        permissions = [
+            ("can_use_discord_api", "Can use Discord bot API"),
+            ("can_manage_discord_links", "Can manage Discord user links"),
+            ("can_view_member_data", "Can view detailed member data"),
+            ("can_modify_member_status", "Can modify member status"),
+        ]
     
     def __str__(self):
         return f"{self.name} ({self.character_class} L{self.level})"

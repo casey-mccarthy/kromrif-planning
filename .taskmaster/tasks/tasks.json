@@ -376,7 +376,7 @@
         "id": 7,
         "title": "Multi-Period Attendance Tracking System",
         "description": "Implement 30/60/90 day rolling averages and lifetime attendance statistics",
-        "details": "Create MemberAttendanceSummary model with 30/60/90 day percentages and lifetime stats. Implement Django management command for daily attendance calculations. Create DRF API endpoints for attendance queries and leaderboards. Set up efficient database queries with proper indexing. Implement attendance-based voting eligibility (\u226515% in 30 days).",
+        "details": "Create MemberAttendanceSummary model with 30/60/90 day percentages and lifetime stats. Implement Django management command for daily attendance calculations. Create DRF API endpoints for attendance queries and leaderboards. Set up efficient database queries with proper indexing. Implement attendance-based voting eligibility (≥15% in 30 days).",
         "testStrategy": "Test attendance calculations are accurate across all time periods and voting eligibility correctly identifies qualified members",
         "priority": "medium",
         "dependencies": [
@@ -539,7 +539,7 @@
               1
             ],
             "details": "Create models and services to associate Discord user IDs with internal member records, handle OAuth flows, and manage link/unlink operations with proper validation.",
-            "status": "pending",
+            "status": "in-progress",
             "testStrategy": ""
           },
           {
@@ -666,8 +666,8 @@
           4
         ],
         "priority": "medium",
-        "details": "\u2705 COMPLETED: Tailwind CSS static file compilation issues have been resolved. The django-tailwind setup is now fully working with npm dependencies installed, CSS properly compiled to theme/static/css/dist/styles.css, and 404 errors resolved. The website now loads with proper Tailwind styling including responsive design, component library integration, and all template classes (cards, navigation, messages, etc.).\n\nNEXT PHASES:\nPhase 2: Character Management UI - Implement responsive list views, detailed character cards, and HTMX-powered create/edit forms building on the now-working Tailwind foundation.\nPhase 3: Guild Roster dashboard with rank management interface, member search/filtering, and real-time updates via HTMX.\nPhase 4: Reusable component library including HTMX-enhanced forms, modal dialogs, toast notifications, and loading states.\nPhase 5: Enhanced interactivity with progressive enhancement, smooth transitions, and optimistic UI updates.\n\nEnsure all templates continue to follow established patterns with proper CSRF handling, role-based styling, and Alpine.js integration for lightweight interactions.",
-        "testStrategy": "\u2705 VERIFIED: Tailwind CSS static files compile correctly and load without 404 errors. Test user detail page routing resolves properly. Next: Validate character management forms work with HTMX for create/read/update/delete operations. Confirm guild roster dashboard displays properly with filtering and search functionality. Test component library elements render consistently across different screen sizes. Verify progressive enhancement works with and without JavaScript enabled. Test role-based UI elements display correctly for different user types.",
+        "details": "✅ COMPLETED: Tailwind CSS static file compilation issues have been resolved. The django-tailwind setup is now fully working with npm dependencies installed, CSS properly compiled to theme/static/css/dist/styles.css, and 404 errors resolved. The website now loads with proper Tailwind styling including responsive design, component library integration, and all template classes (cards, navigation, messages, etc.).\n\nNEXT PHASES:\nPhase 2: Character Management UI - Implement responsive list views, detailed character cards, and HTMX-powered create/edit forms building on the now-working Tailwind foundation.\nPhase 3: Guild Roster dashboard with rank management interface, member search/filtering, and real-time updates via HTMX.\nPhase 4: Reusable component library including HTMX-enhanced forms, modal dialogs, toast notifications, and loading states.\nPhase 5: Enhanced interactivity with progressive enhancement, smooth transitions, and optimistic UI updates.\n\nEnsure all templates continue to follow established patterns with proper CSRF handling, role-based styling, and Alpine.js integration for lightweight interactions.",
+        "testStrategy": "✅ VERIFIED: Tailwind CSS static files compile correctly and load without 404 errors. Test user detail page routing resolves properly. Next: Validate character management forms work with HTMX for create/read/update/delete operations. Confirm guild roster dashboard displays properly with filtering and search functionality. Test component library elements render consistently across different screen sizes. Verify progressive enhancement works with and without JavaScript enabled. Test role-based UI elements display correctly for different user types.",
         "subtasks": [
           {
             "id": 1,
@@ -710,7 +710,7 @@
     ],
     "metadata": {
       "created": "2025-06-29T19:52:01.977Z",
-      "updated": "2025-07-13T04:49:27.026Z",
+      "updated": "2025-07-14T03:54:47.148Z",
       "description": "Tasks for master context"
     }
   }
