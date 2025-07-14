@@ -14,6 +14,7 @@ from django.utils import timezone
 
 from .models import Application
 from .recruitment_workflows import get_recruitment_workflow_manager
+from .discord_notifications import get_discord_notification_service
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,16 @@ def handle_application_approval(sender, instance, created, **kwargs):
     """
     Signal handler for when an Application is saved.
     Triggers automatic workflow when status changes to 'approved'.
+    Also sends Discord notifications for new applications.
     """
+    # Send Discord notification for new applications
+    if created:
+        try:
+            discord_service = get_discord_notification_service()
+            discord_service.notify_new_application(instance)
+        except Exception as e:
+            logger.error(f"Failed to send Discord notification for new application: {str(e)}")
+    
     # Only process approved applications that haven't been processed yet
     if instance.status == 'approved' and not instance.approved_user:
         logger.info(f"Application {instance.id} approved - triggering automatic workflow")
@@ -95,6 +105,7 @@ def track_application_status_changes(sender, instance, **kwargs):
                 
             elif new_status == 'voting_closed' and previous_status != 'voting_closed':
                 logger.info(f"Voting closed for application {instance.id}")
+        
                 
     except Application.DoesNotExist:
         # This shouldn't happen, but handle gracefully

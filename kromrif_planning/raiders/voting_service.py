@@ -20,6 +20,7 @@ from django.db.models import Count, Sum, Q, Avg
 from django.contrib.auth import get_user_model
 
 from .models import Application, ApplicationVote, MemberAttendanceSummary
+from .discord_notifications import get_discord_notification_service
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -335,17 +336,33 @@ class VotingPeriodManager:
     
     def _notify_voting_opened(self, application: Application):
         """Send notification when voting period opens."""
-        # This would integrate with Discord webhook system
-        # For now, just log the notification
+        try:
+            discord_service = get_discord_notification_service()
+            discord_service.notify_voting_opened(application, application.voting_deadline)
+        except Exception as e:
+            logger.error(f"Failed to send Discord notification for voting opened: {str(e)}")
+        
         logger.info(f"NOTIFICATION: Voting opened for {application.character_name} - Deadline: {application.voting_deadline}")
     
     def _notify_voting_closed(self, application: Application, results: Dict):
         """Send notification when voting period closes."""
+        try:
+            discord_service = get_discord_notification_service()
+            discord_service.notify_voting_closed(application, results['vote_summary'], results['decision'])
+        except Exception as e:
+            logger.error(f"Failed to send Discord notification for voting closed: {str(e)}")
+        
         decision = results['decision']
         logger.info(f"NOTIFICATION: Voting closed for {application.character_name} - Decision: {decision['final_status']} ({decision['reason']})")
     
     def _notify_voting_deadline_reminder(self, application: Application, hours_remaining: int):
         """Send deadline reminder notification."""
+        try:
+            discord_service = get_discord_notification_service()
+            discord_service.notify_voting_reminder(application, hours_remaining)
+        except Exception as e:
+            logger.error(f"Failed to send Discord notification for voting reminder: {str(e)}")
+        
         logger.info(f"NOTIFICATION: {hours_remaining}h remaining for {application.character_name} voting deadline")
     
     @classmethod

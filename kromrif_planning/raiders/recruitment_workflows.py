@@ -22,6 +22,7 @@ from django.utils import timezone
 
 from .models import Application, Character, Rank, CharacterOwnership
 from .voting_service import get_voting_manager
+from .discord_notifications import get_discord_notification_service
 
 # Import DKP models if available
 try:
@@ -361,7 +362,12 @@ class RecruitmentWorkflowManager:
     
     def _notify_workflow_completed(self, application: Application, results: Dict):
         """Send notification about completed workflow."""
-        # This would integrate with Discord webhook system
+        try:
+            discord_service = get_discord_notification_service()
+            discord_service.notify_character_created(application, results)
+        except Exception as e:
+            logger.error(f"Failed to send Discord notification for character creation: {str(e)}")
+        
         logger.info(
             f"NOTIFICATION: Recruitment workflow completed for {application.character_name}\n"
             f"  User: {results['user']['username']} ({results['user']['email']})\n"
