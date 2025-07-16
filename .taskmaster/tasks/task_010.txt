@@ -1,0 +1,49 @@
+# Task ID: 10
+# Title: Recruitment Application and Voting System
+# Status: pending
+# Dependencies: 7
+# Priority: high
+# Description: Build comprehensive recruitment system with two-stage approval and member voting
+# Details:
+Create Application model with all required fields and status tracking. Create ApplicationVote model with attendance-based counting logic. Implement role-based access control: guests blocked, members see aggregates, officers see details. Create voting period management with 48-hour windows. Set up automatic character creation and trial member promotion workflows. Implement Discord webhook integration for application summaries.
+
+# Test Strategy:
+Test complete recruitment workflow from application submission through voting to character creation, with proper access controls at each step
+
+# Subtasks:
+## 1. Create Application Model with Comprehensive Fields [pending]
+### Dependencies: None
+### Description: Design and implement the core Application model with all necessary fields for tracking recruitment applications including applicant information, status tracking, timestamps, and character details
+### Details:
+Build Django model with fields for character name, class, level, guild experience, references, application text, status (pending/approved/rejected), timestamps, and foreign key relationships
+
+## 2. Implement ApplicationVote Model with Attendance Logic [pending]
+### Dependencies: 10.1
+### Description: Create ApplicationVote model that tracks individual member votes on applications with attendance-based voting eligibility and weight calculations
+### Details:
+Design model linking User, Application, and vote choice with attendance thresholds, voting weight based on participation, and validation rules for eligible voters
+
+## 3. Build Role-Based Access Control System [pending]
+### Dependencies: 10.1
+### Description: Implement comprehensive role-based permissions system for different user types (officers, members, applicants) with appropriate access levels
+### Details:
+Create Django groups/permissions for officers (full access), members with sufficient attendance (voting rights), regular members (view only), and applicants (limited access)
+
+## 4. Develop Voting Period Management [pending]
+### Dependencies: 10.2
+### Description: Create system for managing voting time windows with configurable periods, automatic opening/closing, and deadline enforcement
+### Details:
+Implement time-based voting windows with configurable duration, automatic status changes, deadline notifications, and vote tallying at period end
+
+## 5. Build Automatic Character Creation and Promotion Workflows [pending]
+### Dependencies: 10.4
+### Description: Implement automated workflows that trigger character creation and guild promotion based on successful application approval
+### Details:
+Create Django signals and background tasks for automatic character record creation, DKP initialization, guild rank assignment, and integration with existing character management system
+
+## 6. Integrate Discord Webhook Notifications [pending]
+### Dependencies: 10.5
+### Description: Implement Discord webhook integration for real-time notifications of application events, voting updates, and status changes
+### Details:
+Build webhook system for notifications on new applications, voting period start/end, application approval/rejection, and automated character creation with configurable message formatting
+

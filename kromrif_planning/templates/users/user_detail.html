@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}User Profile{% endblock title %}
+
+{% block content %}
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-md-8">
+      <div class="card">
+        <div class="card-header">
+          <h3><i class="fas fa-user"></i> User Profile</h3>
+        </div>
+        <div class="card-body">
+          {% if user.discord_avatar %}
+          <div class="text-center mb-3">
+            <img src="https://cdn.discordapp.com/avatars/{{ user.discord_id }}/{{ user.discord_avatar }}.png?size=128" 
+                 alt="Discord Avatar" 
+                 class="rounded-circle" 
+                 width="128" 
+                 height="128">
+          </div>
+          {% endif %}
+          
+          <div class="row">
+            <div class="col-sm-4"><strong>Username:</strong></div>
+            <div class="col-sm-8">{{ user.username }}</div>
+          </div>
+          <hr>
+          
+          {% if user.name %}
+          <div class="row">
+            <div class="col-sm-4"><strong>Display Name:</strong></div>
+            <div class="col-sm-8">{{ user.name }}</div>
+          </div>
+          <hr>
+          {% endif %}
+          
+          {% if user.email %}
+          <div class="row">
+            <div class="col-sm-4"><strong>Email:</strong></div>
+            <div class="col-sm-8">{{ user.email }}</div>
+          </div>
+          <hr>
+          {% endif %}
+          
+          {% if user.discord_username %}
+          <div class="row">
+            <div class="col-sm-4"><strong>Discord:</strong></div>
+            <div class="col-sm-8">
+              {{ user.discord_username }}
+              {% if user.discord_discriminator and user.discord_discriminator != "0" %}
+                #{{ user.discord_discriminator }}
+              {% endif %}
+            </div>
+          </div>
+          <hr>
+          {% endif %}
+          
+          <div class="row">
+            <div class="col-sm-4"><strong>Member Since:</strong></div>
+            <div class="col-sm-8">{{ user.date_joined|date:"F d, Y" }}</div>
+          </div>
+          <hr>
+          
+          <div class="row">
+            <div class="col-sm-4"><strong>Last Login:</strong></div>
+            <div class="col-sm-8">
+              {% if user.last_login %}
+                {{ user.last_login|date:"F d, Y g:i A" }}
+              {% else %}
+                Never
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        <div class="card-footer">
+          <a href="{% url 'home' %}" class="btn btn-primary">
+            <i class="fas fa-home"></i> Back to Home
+          </a>
+          <a href="{% url 'account_logout' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-sign-out-alt"></i> Logout
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}

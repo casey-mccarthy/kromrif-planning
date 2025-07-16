@@ -1,0 +1,846 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Django Project Setup and Configuration",
+        "description": "Initialize Django project with cookiecutter-django template and configure essential settings",
+        "details": "Use cookiecutter-django to create project structure. Configure settings for PostgreSQL/MySQL database, Redis cache, CORS headers, and environment variables. Set up requirements.txt with Django 4.2+, DRF, django-allauth, django-cors-headers, redis, psycopg2, and testing dependencies. Configure development and production settings separation.",
+        "testStrategy": "Verify Django server starts successfully, database connections work, and all required packages import correctly",
+        "priority": "high",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Set up cookiecutter-django template",
+            "description": "Initialize Django project using cookiecutter-django template with appropriate configuration options",
+            "dependencies": [],
+            "details": "Run cookiecutter cookiecutter-django command, select appropriate template options for project requirements including database choice, deployment platform, and other configuration settings",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Configure database connection",
+            "description": "Set up PostgreSQL or MySQL database configuration and test connection",
+            "dependencies": [
+              1
+            ],
+            "details": "Configure database settings in Django settings files, install appropriate database adapter (psycopg2 for PostgreSQL or mysqlclient for MySQL), create database, and test connection with Django management commands",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Configure Redis cache and CORS settings",
+            "description": "Set up Redis for caching and configure CORS for API access",
+            "dependencies": [
+              1
+            ],
+            "details": "Install and configure Redis server, set up Django cache configuration to use Redis backend, install django-cors-headers package, and configure CORS settings for frontend integration",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Set up requirements.txt and environment separation",
+            "description": "Organize Python dependencies and configure separate settings for development and production environments",
+            "dependencies": [
+              2,
+              3
+            ],
+            "details": "Create requirements/base.txt, requirements/local.txt, and requirements/production.txt files with appropriate dependencies, configure environment-specific Django settings files, and set up environment variables for sensitive configuration",
+            "status": "done",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Django-Allauth Discord OAuth Integration",
+        "description": "Configure django-allauth with Discord OAuth provider for authentication",
+        "details": "Install and configure django-allauth with Discord provider. Set up OAuth 2.0 flow with proper scopes (identify, email). Configure Discord app credentials in settings. Create custom allauth adapter to populate User model from Discord data. Set up authentication URLs and templates. Configure session management and token handling.",
+        "testStrategy": "Test complete Discord OAuth flow from login initiation to user creation and data population",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Install and configure django-allauth",
+            "description": "Install django-allauth package and add basic configuration to Django settings",
+            "dependencies": [],
+            "details": "Install django-allauth via pip, add to INSTALLED_APPS, configure basic allauth settings including AUTHENTICATION_BACKENDS, SITE_ID, and basic allauth configuration in settings.py",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Set up Discord OAuth provider with app credentials",
+            "description": "Configure Discord OAuth application and add provider settings to Django",
+            "dependencies": [
+              1
+            ],
+            "details": "Create Discord application in Discord Developer Portal, obtain client ID and secret, configure Discord provider in allauth settings with proper redirect URIs and app credentials",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Implement OAuth flow with proper scopes",
+            "description": "Configure OAuth authentication flow with required Discord scopes",
+            "dependencies": [
+              2
+            ],
+            "details": "Set up OAuth flow configuration with appropriate Discord scopes (identify, email, guilds), configure callback handling, and ensure proper token exchange and validation",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Create custom allauth adapter for Discord data mapping",
+            "description": "Develop custom adapter to map Discord user data to Django user model",
+            "dependencies": [
+              3
+            ],
+            "details": "Create custom SocialAccountAdapter to handle Discord-specific user data mapping, avatar URLs, Discord user IDs, and any additional Discord-specific fields to Django User model",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Set up authentication URLs, templates, and session management",
+            "description": "Configure URL patterns, create authentication templates, and implement session management",
+            "dependencies": [
+              4
+            ],
+            "details": "Add allauth URLs to urlpatterns, create login/logout templates, configure session management, implement proper user authentication state handling, and set up post-authentication redirects",
+            "status": "done",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Extended User Model and Role System",
+        "description": "Extend Django User model with Discord data and implement role-based permissions",
+        "details": "Extend Django User model with Discord ID, username, discriminator, and avatar URL fields populated from allauth. Implement role_group field with choices (developer, officer, recruiter, member, applicant, guest). Create Django Groups for permissions. Set up custom user manager and admin interface. Configure allauth signals to sync Discord data on login.",
+        "testStrategy": "Test user creation from Discord OAuth populates all fields correctly and role system enforces proper permissions",
+        "priority": "high",
+        "dependencies": [
+          2
+        ],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Extend User model with Discord fields and custom manager",
+            "description": "Create custom User model extending AbstractUser with Discord-specific fields (discord_id, discord_username, discord_avatar, discord_discriminator) and implement custom manager for Discord user operations",
+            "dependencies": [],
+            "details": "Add Discord fields to User model, create custom UserManager with Discord lookup methods, ensure proper field validation and constraints for Discord data",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Implement role_group field with choices and Django Groups integration",
+            "description": "Add role_group field to User model with predefined choices and establish relationship with Django's Group system for permission management",
+            "dependencies": [
+              1
+            ],
+            "details": "Define role choices (e.g., Member, Moderator, Admin), create role_group field with choices, implement automatic Group assignment based on role, create migration for existing users",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Customize Django admin interface for enhanced User management",
+            "description": "Configure Django admin to display Discord fields, role management, and provide efficient user administration interface with filtering and search capabilities",
+            "dependencies": [
+              2
+            ],
+            "details": "Create custom UserAdmin class, configure fieldsets to display Discord fields and role_group, add list filters for roles and Discord status, implement search functionality for Discord usernames",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Setup django-allauth signals for automatic Discord data synchronization",
+            "description": "Implement signal handlers to automatically populate Discord user data when users authenticate via Discord OAuth, ensuring data consistency and automatic updates",
+            "dependencies": [
+              3
+            ],
+            "details": "Create signal handlers for social_account_added and social_account_updated signals, implement logic to extract and update Discord user data, handle edge cases for data conflicts and updates",
+            "status": "done",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Character Management System",
+        "description": "Create Character model with CRUD operations and user associations",
+        "details": "Create Character model with name (unique), class, level, rank, status fields and ForeignKey to User. Implement character reassignment between users. Create Rank model with hierarchy. Set up main/alt character relationships via self-referencing ForeignKey. Create ownership history tracking model. Implement Django admin interface and DRF ViewSets with proper serializers.",
+        "testStrategy": "Test character CRUD operations, user associations, reassignment functionality, and ownership history tracking",
+        "priority": "high",
+        "dependencies": [
+          3
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create Character model with basic fields and user relationships",
+            "description": "Implement the core Character model with essential fields like name, description, creation date, and establish foreign key relationship to User model",
+            "dependencies": [],
+            "details": "Create Character model in models.py with fields: name (CharField), description (TextField), created_at (DateTimeField), updated_at (DateTimeField), user (ForeignKey to User). Include proper string representation and basic model validation.\n<info added on 2025-07-08T04:07:52.834Z>\nImplementation completed successfully. Created Character model in new 'raiders' Django app with enhanced field set including name (unique), character_class, level, status enum (active/inactive/retired/alt), user ForeignKey, description, is_active boolean, and timestamp fields. Added database indexes for performance optimization and configured Django admin interface for easy management. Database migrations generated and applied without issues. The model is now ready for use with proper validation and admin functionality.\n</info added on 2025-07-08T04:07:52.834Z>",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Implement Rank model and hierarchy system",
+            "description": "Create Rank model with hierarchical structure and associate it with Character model",
+            "dependencies": [
+              1
+            ],
+            "details": "Create Rank model with fields: name, level (IntegerField for hierarchy), description. Add rank field to Character model as ForeignKey. Implement ordering and validation for rank hierarchy levels.\n<info added on 2025-07-08T04:28:56.421Z>\nImplementation completed successfully with enhanced features beyond initial requirements. The Rank model includes additional fields for permissions (JSONField) and color coding (hex field) with timestamps for better tracking. Django admin interface provides visual rank representation with color displays and character count statistics. Database migrations properly handle the rank hierarchy system with unique constraints on both name and level fields. The Character model's rank relationship uses SET_NULL deletion behavior to preserve character data when ranks are removed.\n</info added on 2025-07-08T04:28:56.421Z>",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Implement main/alt character relationships via self-referencing ForeignKey",
+            "description": "Add self-referencing relationship to Character model to support main character and alternate character associations",
+            "dependencies": [
+              1
+            ],
+            "details": "Add main_character field to Character model as ForeignKey('self') with null=True, blank=True. Add related_name='alt_characters' to enable reverse lookup. Include methods to get main character and all alternates.\n<info added on 2025-07-08T04:30:47.917Z>\nImplementation completed successfully. Self-referencing ForeignKey added to Character model with SET_NULL on delete protection and 'alt_characters' related_name for reverse lookups. Helper properties implemented: is_main (checks if main_character is None), is_alt (checks if main_character exists), and navigation methods: get_main_character() returns self or main character, get_all_alts() returns queryset of alternates, get_character_family() returns combined main+alts queryset. Django admin enhanced with character type display showing 'Main (X alts)' or 'Alt of [name]' and autocomplete widget for main_character selection. Database migrations created and applied without issues.\n</info added on 2025-07-08T04:30:47.917Z>",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Create ownership history tracking model",
+            "description": "Implement CharacterOwnership model to track character ownership changes over time",
+            "dependencies": [
+              1
+            ],
+            "details": "Create CharacterOwnership model with fields: character (ForeignKey to Character), previous_owner (ForeignKey to User), new_owner (ForeignKey to User), transfer_date (DateTimeField), reason (TextField). Add indexes for efficient querying.\n<info added on 2025-07-08T04:32:44.778Z>\nImplementation completed successfully. The CharacterOwnership model has been fully developed with comprehensive tracking capabilities including nullable previous_owner for initial character creation, auto-timestamped transfer dates, and structured reason choices (created/manual/inactive/left_guild/returned/other). Added validation logic to prevent invalid same-user transfers and created a helper method record_transfer() for streamlined transfer operations. Django admin interface configured with enhanced visualization including transfer display, date hierarchy navigation, and comprehensive search/filter functionality. Database performance optimized with strategic indexes on commonly queried fields. All migrations have been generated and successfully applied to the database.\n</info added on 2025-07-08T04:32:44.778Z>",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Implement Django admin interface and DRF ViewSets with serializers",
+            "description": "Create comprehensive admin interface and REST API endpoints for all character-related models",
+            "dependencies": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "details": "Create admin.py with ModelAdmin classes for Character, Rank, and CharacterOwnership. Implement DRF serializers for all models with proper field validation. Create ViewSets with CRUD operations, filtering, and pagination. Include proper permissions and authentication.\n<info added on 2025-07-08T04:36:05.325Z>\nImplementation completed successfully. Django admin interface was already in place from previous subtasks with comprehensive ModelAdmin classes featuring custom displays, filters, search functionality, and optimized querysets for Character, Rank, and CharacterOwnership models. Built complete REST API with five serializers: RankSerializer for rank data, CharacterListSerializer for character listings, CharacterDetailSerializer for full character information, CharacterOwnershipSerializer for ownership records, and CharacterTransferSerializer for character transfers. Implemented ViewSets with staff-only permissions for destructive operations, custom actions including my_characters endpoint, family grouping, and transfer functionality. Added filtering capabilities by user and character type, plus ownership history tracking. All API endpoints are accessible at /api/raiders/ with full CRUD operations, proper authentication, and pagination support.\n</info added on 2025-07-08T04:36:05.325Z>",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "DKP Point System with User-Based Tracking",
+        "description": "Implement single-pool DKP system with points awarded to users, not characters",
+        "details": "Create UserPointsSummary model for current balances. Create PointAdjustment model for all point changes (raids, bonuses, penalties, purchases). Implement Django signals for automatic summary updates. Create point calculation methods using Django aggregation. Set up point history tracking with character name snapshots. Implement validation to prevent negative balances.",
+        "testStrategy": "Test point calculations are accurate, summaries update automatically, and character reassignment doesn't affect user point totals",
+        "priority": "high",
+        "dependencies": [
+          4
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create UserPointsSummary model for current DKP balances",
+            "description": "Design and implement a model to store current DKP point balances for each user with optimized queries",
+            "dependencies": [],
+            "details": "Create UserPointsSummary model with fields for user, total_points, last_updated, and appropriate indexes. Include model validation and string representation methods.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Implement PointAdjustment model for tracking all DKP changes",
+            "description": "Create a comprehensive audit trail model for all point adjustments with proper categorization",
+            "dependencies": [],
+            "details": "Design PointAdjustment model with fields for user, amount, adjustment_type, reason, timestamp, created_by, and related_object. Include choices for adjustment types and proper foreign key relationships.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Implement Django signals for automatic summary updates",
+            "description": "Create signal handlers to automatically update UserPointsSummary when PointAdjustments are created",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Set up post_save and post_delete signals on PointAdjustment model to trigger automatic updates to UserPointsSummary. Ensure atomic transactions and handle edge cases.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Develop point calculation methods using Django aggregation",
+            "description": "Create efficient methods to calculate point totals and verify summary accuracy using database aggregation",
+            "dependencies": [
+              2
+            ],
+            "details": "Implement manager methods and utility functions for calculating point totals, handling different adjustment types, and providing verification methods to ensure summary accuracy against actual adjustments.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Add validation and negative balance prevention",
+            "description": "Implement comprehensive validation to prevent invalid point adjustments and negative balances",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Create model validation methods, custom validators, and business logic to prevent negative balances, validate adjustment amounts, and ensure data integrity. Include proper error handling and user feedback.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Event and Raid Management",
+        "description": "Create Event types and Raid instances with attendance tracking",
+        "details": "Create Event model with name, point values, and descriptions. Create Raid model with ForeignKey to Event, date/time, leader, and notes. Create RaidAttendance model linking Users to Raids with character name snapshots. Implement attendance parsing from character names to award points to User accounts. Set up DRF ViewSets with nested attendance endpoints.",
+        "testStrategy": "Test event creation, raid management, attendance tracking awards points to correct users based on character ownership",
+        "priority": "high",
+        "dependencies": [
+          5
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create Event model with point values and descriptions",
+            "description": "Design and implement the Event model with fields for event names, point values, descriptions, and timestamps",
+            "dependencies": [],
+            "details": "Create Event model in models.py with fields: name (CharField), description (TextField), points (IntegerField), created_at/updated_at timestamps, and appropriate string representation method",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Implement Raid model with event relationships and metadata",
+            "description": "Create Raid model that links to Events and includes raid-specific metadata like date, location, and status",
+            "dependencies": [
+              1
+            ],
+            "details": "Create Raid model with ForeignKey to Event, fields for raid_date, location, status, max_participants, and methods for calculating total attendance points",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Build RaidAttendance model with user-character linking",
+            "description": "Implement RaidAttendance model to track which characters attended which raids with attendance status",
+            "dependencies": [
+              2
+            ],
+            "details": "Create RaidAttendance model with ForeignKeys to Raid and Character, attendance_status choices (present, absent, late, etc.), points_awarded field, and unique_together constraint",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Create DRF ViewSets and nested attendance endpoints",
+            "description": "Implement Django REST Framework ViewSets for Events, Raids, and RaidAttendance with nested serializers and endpoints",
+            "dependencies": [
+              3
+            ],
+            "details": "Create ViewSets for all models, nested serializers showing attendance within raids, endpoints for bulk attendance updates, and proper filtering/pagination",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Multi-Period Attendance Tracking System",
+        "description": "Implement 30/60/90 day rolling averages and lifetime attendance statistics",
+        "details": "Create MemberAttendanceSummary model with 30/60/90 day percentages and lifetime stats. Implement Django management command for daily attendance calculations. Create DRF API endpoints for attendance queries and leaderboards. Set up efficient database queries with proper indexing. Implement attendance-based voting eligibility (≥15% in 30 days).",
+        "testStrategy": "Test attendance calculations are accurate across all time periods and voting eligibility correctly identifies qualified members",
+        "priority": "medium",
+        "dependencies": [
+          6
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Design MemberAttendanceSummary model",
+            "description": "Create Django model to store aggregated attendance data with fields for member, date, rolling averages, and voting eligibility status",
+            "dependencies": [],
+            "details": "Define model fields including member foreign key, summary_date, attendance_rate_7d, attendance_rate_30d, attendance_rate_90d, is_voting_eligible, last_updated timestamp. Include proper indexing and constraints.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Implement rolling average calculation algorithms",
+            "description": "Create efficient algorithms to calculate 7-day, 30-day, and 90-day rolling attendance averages with proper handling of edge cases",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement functions for calculating weighted and unweighted rolling averages, handle missing data points, optimize for performance with large datasets, and ensure accuracy across different time periods.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Create Django management command for daily calculations",
+            "description": "Build management command that runs daily to update all member attendance summaries using the rolling average algorithms",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Create management/commands/update_attendance_summaries.py that processes all active members, calculates updated rolling averages, and updates MemberAttendanceSummary records. Include logging and error handling.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Optimize database with proper indexing",
+            "description": "Add database indexes and optimize queries for efficient attendance data retrieval and summary calculations",
+            "dependencies": [
+              1
+            ],
+            "details": "Create composite indexes on (member, summary_date), (summary_date), and (is_voting_eligible). Optimize queries for bulk operations and ensure efficient data retrieval for API endpoints.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Build DRF API endpoints for queries and leaderboards",
+            "description": "Create REST API endpoints for retrieving attendance summaries, member statistics, and leaderboard data",
+            "dependencies": [
+              1,
+              4
+            ],
+            "details": "Implement ViewSets and serializers for MemberAttendanceSummary, create endpoints for individual member stats, attendance leaderboards, and filtered queries. Include pagination and proper permission controls.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Implement voting eligibility logic",
+            "description": "Create business logic to determine member voting eligibility based on attendance thresholds and update eligibility status",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Define voting eligibility criteria based on rolling attendance averages, implement logic to automatically update is_voting_eligible field, and create functions to check eligibility for specific dates or periods.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Item and Loot Distribution API",
+        "description": "Create item tracking and loot distribution system for Discord bot integration",
+        "details": "Create Item model with simple name field. Create LootDistribution model linking User, Item, Raid with point cost and character context. Implement DRF API endpoints for Discord bot: award item, check user balance, validate points. Set up automatic point deduction via Django signals. Create loot audit trail and distribution history endpoints.",
+        "testStrategy": "Test Discord bot API endpoints correctly process loot awards, deduct points, and maintain accurate audit trails",
+        "priority": "high",
+        "dependencies": [
+          5
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create Item and LootDistribution models",
+            "description": "Design and implement Django models for loot items and distribution tracking with proper relationships to Character model",
+            "dependencies": [],
+            "details": "Create Item model with fields for name, description, value, rarity. Create LootDistribution model with foreign keys to Character and Item, timestamp, quantity, and point cost fields. Include proper model validation and string representations.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Build DRF API endpoints for Discord bot integration",
+            "description": "Implement REST API endpoints using Django REST Framework for Discord bot to manage loot distribution",
+            "dependencies": [
+              1
+            ],
+            "details": "Create serializers for Item and LootDistribution models. Implement viewsets with proper permissions and filtering. Add endpoints for listing available items, distributing loot to characters, and querying distribution history. Include API documentation.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Implement automatic point deduction via Django signals",
+            "description": "Set up Django signals to automatically deduct points from character accounts when loot is distributed",
+            "dependencies": [
+              1
+            ],
+            "details": "Create post_save signal handler for LootDistribution model. Implement atomic transaction logic to ensure point deduction and loot distribution occur together or not at all. Add validation to prevent negative point balances and handle edge cases.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Build loot audit trail and distribution history tracking",
+            "description": "Implement comprehensive audit logging and history views for loot distribution tracking",
+            "dependencies": [
+              2,
+              3
+            ],
+            "details": "Create audit model to track all loot-related actions with timestamps, user info, and change details. Build admin interface views for reviewing distribution history. Add filtering and search capabilities for audit records. Include export functionality for historical data.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Discord Integration and Member Management",
+        "description": "Implement Discord bot API endpoints and member status synchronization",
+        "details": "Create DRF API endpoints for roster queries, member status updates, and audit logging. Implement member linking/unlinking via Discord ID. Set up Django signals for automatic Discord webhook notifications on status changes. Create custom DRF permissions for bot access. Implement error handling and retry mechanisms for external API calls.",
+        "testStrategy": "Test all Discord integration endpoints work correctly and member status changes trigger appropriate notifications",
+        "priority": "high",
+        "dependencies": [
+          3
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create DRF API endpoints for roster and member management",
+            "description": "Implement Django REST Framework API endpoints to handle Discord roster operations and member data management",
+            "dependencies": [],
+            "details": "Create ViewSets and serializers for Discord roster CRUD operations, member profile management, and bulk operations. Include proper API documentation and validation.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Implement member linking/unlinking functionality",
+            "description": "Build the core functionality to link Discord users with application members and handle unlinking operations",
+            "dependencies": [
+              1
+            ],
+            "details": "Create models and services to associate Discord user IDs with internal member records, handle OAuth flows, and manage link/unlink operations with proper validation.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Develop Django signals for webhook notifications",
+            "description": "Implement Django signal handlers to process Discord webhook events and trigger appropriate responses",
+            "dependencies": [
+              2
+            ],
+            "details": "Create signal receivers for Discord events like member joins/leaves, role changes, and message events. Include proper event validation and processing logic.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Create custom DRF permissions for bot access",
+            "description": "Implement custom Django REST Framework permission classes to control Discord bot API access",
+            "dependencies": [
+              1
+            ],
+            "details": "Design and implement permission classes that authenticate Discord bots, validate bot permissions, and restrict access to appropriate API endpoints based on bot roles.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Build error handling and retry mechanisms",
+            "description": "Implement comprehensive error handling and retry logic for Discord API interactions",
+            "dependencies": [
+              3,
+              4
+            ],
+            "details": "Create error handling for Discord API rate limits, network failures, and webhook processing errors. Implement exponential backoff retry mechanisms and proper logging for debugging.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Recruitment Application and Voting System",
+        "description": "Build comprehensive recruitment system with two-stage approval and member voting",
+        "details": "Create Application model with all required fields and status tracking. Create ApplicationVote model with attendance-based counting logic. Implement role-based access control: guests blocked, members see aggregates, officers see details. Create voting period management with 48-hour windows. Set up automatic character creation and trial member promotion workflows. Implement Discord webhook integration for application summaries.",
+        "testStrategy": "Test complete recruitment workflow from application submission through voting to character creation, with proper access controls at each step",
+        "priority": "high",
+        "dependencies": [
+          7
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create Application Model with Comprehensive Fields",
+            "description": "Design and implement the core Application model with all necessary fields for tracking recruitment applications including applicant information, status tracking, timestamps, and character details",
+            "dependencies": [],
+            "details": "Build Django model with fields for character name, class, level, guild experience, references, application text, status (pending/approved/rejected), timestamps, and foreign key relationships",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Implement ApplicationVote Model with Attendance Logic",
+            "description": "Create ApplicationVote model that tracks individual member votes on applications with attendance-based voting eligibility and weight calculations",
+            "dependencies": [
+              1
+            ],
+            "details": "Design model linking User, Application, and vote choice with attendance thresholds, voting weight based on participation, and validation rules for eligible voters",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Build Role-Based Access Control System",
+            "description": "Implement comprehensive role-based permissions system for different user types (officers, members, applicants) with appropriate access levels",
+            "dependencies": [
+              1
+            ],
+            "details": "Create Django groups/permissions for officers (full access), members with sufficient attendance (voting rights), regular members (view only), and applicants (limited access)",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Develop Voting Period Management",
+            "description": "Create system for managing voting time windows with configurable periods, automatic opening/closing, and deadline enforcement",
+            "dependencies": [
+              2
+            ],
+            "details": "Implement time-based voting windows with configurable duration, automatic status changes, deadline notifications, and vote tallying at period end",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Build Automatic Character Creation and Promotion Workflows",
+            "description": "Implement automated workflows that trigger character creation and guild promotion based on successful application approval",
+            "dependencies": [
+              4
+            ],
+            "details": "Create Django signals and background tasks for automatic character record creation, DKP initialization, guild rank assignment, and integration with existing character management system",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Integrate Discord Webhook Notifications",
+            "description": "Implement Discord webhook integration for real-time notifications of application events, voting updates, and status changes",
+            "dependencies": [
+              5
+            ],
+            "details": "Build webhook system for notifications on new applications, voting period start/end, application approval/rejection, and automated character creation with configurable message formatting",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "Frontend Implementation with Tailwind CSS and HTMX",
+        "description": "Create modern, responsive web frontends for character management and guild roster functionality using Tailwind CSS and HTMX with proper static file compilation and URL routing.",
+        "status": "pending",
+        "dependencies": [
+          3,
+          4
+        ],
+        "priority": "medium",
+        "details": "✅ COMPLETED: Tailwind CSS static file compilation issues have been resolved. The django-tailwind setup is now fully working with npm dependencies installed, CSS properly compiled to theme/static/css/dist/styles.css, and 404 errors resolved. The website now loads with proper Tailwind styling including responsive design, component library integration, and all template classes (cards, navigation, messages, etc.).\n\nNEXT PHASES:\nPhase 2: Character Management UI - Implement responsive list views, detailed character cards, and HTMX-powered create/edit forms building on the now-working Tailwind foundation.\nPhase 3: Guild Roster dashboard with rank management interface, member search/filtering, and real-time updates via HTMX.\nPhase 4: Reusable component library including HTMX-enhanced forms, modal dialogs, toast notifications, and loading states.\nPhase 5: Enhanced interactivity with progressive enhancement, smooth transitions, and optimistic UI updates.\n\nEnsure all templates continue to follow established patterns with proper CSRF handling, role-based styling, and Alpine.js integration for lightweight interactions.",
+        "testStrategy": "✅ VERIFIED: Tailwind CSS static files compile correctly and load without 404 errors. Test user detail page routing resolves properly. Next: Validate character management forms work with HTMX for create/read/update/delete operations. Confirm guild roster dashboard displays properly with filtering and search functionality. Test component library elements render consistently across different screen sizes. Verify progressive enhancement works with and without JavaScript enabled. Test role-based UI elements display correctly for different user types.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Phase 2: Character Management UI Implementation",
+            "description": "Build character management interface with responsive list views, detailed character cards, and HTMX-powered forms",
+            "status": "pending",
+            "dependencies": [],
+            "details": "Create character list page with responsive grid layout, implement detailed character profile cards with stats display, build HTMX-powered create/edit forms for character data, add search and filtering functionality for character lists\n<info added on 2025-07-09T20:17:01.195Z>\nPhase 2 Character Management UI has been successfully completed with full functionality including responsive character list views, detailed profile pages, HTMX-powered forms, search/filtering, character family relationships, rank management, and permission-based access control. All technical implementation is complete with proper Django views, security measures, and modern UI/UX features. Ready to proceed with Phase 3 Guild Roster Dashboard implementation.\n</info added on 2025-07-09T20:17:01.195Z>",
+            "testStrategy": "Test character list displays properly on all screen sizes, verify character cards show all relevant information, validate HTMX forms work for CRUD operations, confirm search/filter functionality works correctly"
+          },
+          {
+            "id": 2,
+            "title": "Phase 3: Guild Roster Dashboard",
+            "description": "Create guild roster interface with rank management and member search functionality",
+            "status": "pending",
+            "dependencies": [],
+            "details": "Build guild roster dashboard with member list, implement rank management interface for guild officers, add member search and filtering capabilities, create real-time updates via HTMX for roster changes",
+            "testStrategy": "Verify guild roster displays all members correctly, test rank management permissions work properly, confirm search/filter functionality, validate real-time updates work via HTMX"
+          },
+          {
+            "id": 3,
+            "title": "Phase 4: Reusable Component Library",
+            "description": "Create library of reusable UI components with HTMX enhancement",
+            "status": "pending",
+            "dependencies": [],
+            "details": "Build HTMX-enhanced form components, create modal dialog components, implement toast notification system, add loading states and progress indicators, ensure components work consistently across the application",
+            "testStrategy": "Test components work across different pages, verify HTMX enhancements function properly, confirm modal dialogs work correctly, validate toast notifications display and dismiss properly"
+          },
+          {
+            "id": 4,
+            "title": "Phase 5: Enhanced Interactivity",
+            "description": "Implement progressive enhancement, smooth transitions, and optimistic UI updates",
+            "status": "pending",
+            "dependencies": [],
+            "details": "Add progressive enhancement patterns, implement smooth CSS transitions, create optimistic UI updates for better user experience, ensure graceful degradation when JavaScript is disabled",
+            "testStrategy": "Test functionality works with and without JavaScript, verify smooth transitions enhance user experience, confirm optimistic updates work correctly, validate graceful degradation"
+          }
+        ]
+      },
+      {
+        "id": 12,
+        "title": "Dependency Security Audit and Vulnerability Resolution",
+        "description": "Conduct comprehensive audit of all Python dependencies for known vulnerabilities and update to secure versions",
+        "details": "Install and run pip-audit to scan for vulnerabilities: `pip install pip-audit && pip-audit`. Review vulnerability report and update affected packages using `pip install --upgrade package-name`. Create requirements-security.txt with pinned secure versions. Set up automated dependency scanning in CI/CD pipeline using tools like Safety or Snyk. Document all changes and create dependency update schedule.",
+        "testStrategy": "Run pip-audit scan before and after updates to verify clean results. Test application functionality after each dependency update. Create automated tests that fail if high/critical vulnerabilities are detected. Verify CI/CD pipeline properly scans dependencies on each commit.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 13,
+        "title": "API Rate Limiting Implementation",
+        "description": "Implement comprehensive rate limiting across all API endpoints using Django REST Framework throttling",
+        "details": "Configure DRF throttling in settings.py with different rates for authenticated (100/hour) vs anonymous (20/hour) users. Add throttling classes to all API views: AnonRateThrottle, UserRateThrottle. Implement stricter rate limiting for authentication endpoints (5/minute for login attempts). Add custom throttling for bulk operations. Configure Redis/Memcached for distributed rate limiting. Add monitoring for rate limit violations using Django logging.",
+        "testStrategy": "Create automated tests that verify rate limits are enforced for each endpoint type. Test brute force protection on authentication endpoints. Verify different rate limits for authenticated vs anonymous users. Load test to ensure rate limiting doesn't impact legitimate usage. Test rate limit headers are properly returned.",
+        "priority": "high",
+        "dependencies": [
+          12
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 14,
+        "title": "CORS Security Configuration",
+        "description": "Configure secure CORS settings for production deployment with explicit allowed origins",
+        "details": "Update CORS_ALLOWED_ORIGINS in settings.py to include only production domains. Remove CORS_ALLOW_ALL_ORIGINS = True. Configure CORS_ALLOWED_HEADERS and CORS_ALLOWED_METHODS explicitly. Set CORS_ALLOW_CREDENTIALS = True for authenticated requests. Add environment-specific CORS configuration. Implement proper CORS preflight handling for complex requests.",
+        "testStrategy": "Test CORS configuration with frontend application in staging environment. Verify preflight requests work correctly. Test that unauthorized origins are blocked. Create automated tests for CORS header validation. Verify credentials are properly handled in cross-origin requests.",
+        "priority": "high",
+        "dependencies": [
+          12
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 15,
+        "title": "API Input Validation Enhancement",
+        "description": "Strengthen input validation and sanitization across all API endpoints and serializers",
+        "details": "Review all DRF serializers for comprehensive field validation. Add custom validators for complex business logic. Implement input sanitization using bleach library for text fields. Add validation for bulk operations and nested serializers. Implement proper error handling that doesn't leak sensitive information. Add request size limits and file upload validation. Use Django's built-in validation and add custom validators where needed.",
+        "testStrategy": "Create comprehensive test suite for input validation covering edge cases, malformed data, and boundary conditions. Test bulk operations with invalid data. Verify error messages don't expose sensitive information. Test file upload validation and size limits. Perform fuzzing tests on API endpoints.",
+        "priority": "medium",
+        "dependencies": [
+          13
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 16,
+        "title": "External Resource Security with SRI",
+        "description": "Implement Subresource Integrity (SRI) for external resources and Content Security Policy headers",
+        "details": "Generate SRI hashes for all external JavaScript and CSS resources using tools like srihash.org. Add integrity attributes to all external script and link tags. Implement Content Security Policy (CSP) headers using django-csp middleware. Configure CSP directives for script-src, style-src, and img-src. Consider self-hosting critical JavaScript libraries. Add fallback mechanisms for CDN failures.",
+        "testStrategy": "Verify all external resources load correctly with SRI hashes. Test CSP headers block unauthorized resource loading. Create automated tests that verify SRI hashes are present and valid. Test fallback mechanisms when CDN resources fail. Validate CSP policy effectiveness using browser security tools.",
+        "priority": "medium",
+        "dependencies": [
+          14
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 17,
+        "title": "Admin Interface Security Hardening",
+        "description": "Secure Django admin interface with URL obfuscation and enhanced authentication measures",
+        "details": "Change admin URL from /admin/ to a non-standard path in urls.py. Implement additional admin authentication middleware. Add admin activity logging using django-admin-log. Review and restrict admin permissions by user groups. Consider implementing two-factor authentication for admin access. Add IP whitelisting for admin access if feasible.",
+        "testStrategy": "Verify admin interface is inaccessible at standard URL. Test admin activity logging captures all actions. Verify admin permissions are properly restricted. Test additional authentication measures work correctly. Create tests for admin access controls and logging functionality.",
+        "priority": "medium",
+        "dependencies": [
+          15
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 18,
+        "title": "Security Monitoring Implementation",
+        "description": "Implement comprehensive security event logging and monitoring system",
+        "details": "Configure Django logging to capture security events (failed logins, rate limit violations, suspicious activity). Implement custom middleware for security event detection. Add failed authentication attempt monitoring and alerting. Create security monitoring dashboard using tools like Grafana or Django admin. Configure log rotation and retention policies. Implement alerting for critical security events.",
+        "testStrategy": "Test security event logging captures all relevant events. Verify failed login monitoring works correctly. Test alerting system triggers on suspicious activity. Create automated tests for security monitoring functionality. Verify log rotation and retention policies work as expected.",
+        "priority": "low",
+        "dependencies": [
+          16
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 19,
+        "title": "Secrets Management Security Review",
+        "description": "Review and improve secrets management practices and implement rotation procedures",
+        "details": "Audit codebase for hardcoded secrets using tools like truffleHog or git-secrets. Move all secrets to environment variables or secret management service. Implement secrets rotation procedures for database passwords, API keys, and JWT secrets. Add secrets scanning to CI/CD pipeline. Document secrets management procedures and create rotation schedule. Consider using tools like Django-environ or HashiCorp Vault.",
+        "testStrategy": "Run secrets scanning tools to verify no hardcoded secrets remain. Test secrets rotation procedures don't break application functionality. Verify CI/CD pipeline fails when secrets are detected. Test environment variable loading and validation. Create automated tests for secrets management functionality.",
+        "priority": "low",
+        "dependencies": [
+          17
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 20,
+        "title": "Security Testing Suite Implementation",
+        "description": "Create comprehensive security testing suite covering all implemented security measures",
+        "details": "Implement unit tests for all security-related functionality including rate limiting, input validation, and authentication. Create integration tests for API security features. Add automated security tests to CI/CD pipeline. Implement API security tests using tools like OWASP ZAP or custom test scripts. Create performance tests to ensure security measures don't impact application performance significantly.",
+        "testStrategy": "Verify all security tests pass consistently. Test that security test failures properly block deployment. Validate test coverage includes all security features. Run security tests in CI/CD pipeline and verify they catch regressions. Perform manual security testing to validate automated test effectiveness.",
+        "priority": "medium",
+        "dependencies": [
+          18
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 21,
+        "title": "Security Documentation and Compliance Verification",
+        "description": "Create comprehensive security documentation and verify OWASP compliance",
+        "details": "Document all security configurations and procedures. Create incident response procedures and security runbooks. Document dependency management and update procedures. Verify application compliance with OWASP Top 10 security standards. Create security training materials for development team. Schedule regular security audits and penetration testing. Document security monitoring and alerting procedures.",
+        "testStrategy": "Review documentation completeness and accuracy. Test incident response procedures with simulated security events. Verify compliance verification covers all OWASP Top 10 categories. Test that security procedures are actionable and comprehensive. Create checklist for regular security audit compliance.",
+        "priority": "medium",
+        "dependencies": [
+          19,
+          20
+        ],
+        "status": "pending",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2025-06-29T19:52:01.977Z",
+      "updated": "2025-07-16T06:15:17.126Z",
+      "description": "Tasks for master context"
+    }
+  }
+}

@@ -1,0 +1,69 @@
+{% comment %}
+Reusable Breadcrumb Component
+
+Usage:
+{% include 'components/breadcrumb.html' with breadcrumbs=breadcrumb_items %}
+
+Where breadcrumb_items is a list of dictionaries:
+breadcrumb_items = [
+    {'text': 'Home', 'url': '/'},
+    {'text': 'Guild Roster', 'url': '/roster/'},
+    {'text': 'Ranks', 'url': None}  # No URL means current page
+]
+
+Or use with individual parameters:
+{% include 'components/breadcrumb.html' with breadcrumb_home_url='/' breadcrumb_items=items %}
+
+Parameters:
+- breadcrumbs: List of breadcrumb items (required)
+- breadcrumb_home_icon: Boolean, show home icon for first item (default: false)
+- breadcrumb_separator: Custom separator (optional, default is chevron)
+{% endcomment %}
+
+{% with breadcrumb_home_icon|default:false as show_home_icon %}
+
+<nav class="flex mb-4" aria-label="Breadcrumb">
+    <ol class="inline-flex items-center space-x-1 md:space-x-3">
+        {% for breadcrumb in breadcrumbs %}
+            <li {% if forloop.first %}class="inline-flex items-center"{% endif %}>
+                {% if not forloop.first %}
+                    <div class="flex items-center">
+                        {% if breadcrumb_separator %}
+                            {{ breadcrumb_separator|safe }}
+                        {% else %}
+                            <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 111.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                            </svg>
+                        {% endif %}
+                {% endif %}
+                
+                {% if breadcrumb.url %}
+                    <a href="{{ breadcrumb.url }}" 
+                       class="{% if forloop.first %}inline-flex items-center {% else %}ml-1 {% endif %}text-sm font-medium text-gray-700 hover:text-indigo-600">
+                        {% if forloop.first and show_home_icon %}
+                            <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path>
+                            </svg>
+                        {% endif %}
+                        {{ breadcrumb.text }}
+                    </a>
+                {% else %}
+                    <span class="{% if forloop.first %}inline-flex items-center {% else %}ml-1 {% endif %}text-sm font-medium text-gray-500">
+                        {% if forloop.first and show_home_icon %}
+                            <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path>
+                            </svg>
+                        {% endif %}
+                        {{ breadcrumb.text }}
+                    </span>
+                {% endif %}
+                
+                {% if not forloop.first %}
+                    </div>
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ol>
+</nav>
+
+{% endwith %}

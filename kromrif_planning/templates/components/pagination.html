@@ -1,0 +1,185 @@
+{% comment %}
+Reusable Pagination Component
+
+Usage:
+{% include 'components/pagination.html' with page_obj=page_obj %}
+
+Parameters:
+- page_obj: Django paginator page object (required)
+- pagination_size: 'sm', 'md', 'lg' (default: 'md')
+- pagination_show_info: Boolean, show result count info (default: true)
+- pagination_show_first_last: Boolean, show first/last page links (default: true)
+- pagination_max_pages: Number of page links to show (default: 7)
+- pagination_query_params: Additional query parameters to preserve (optional)
+{% endcomment %}
+
+{% with pagination_size|default:'md' as size %}
+{% with pagination_show_info|default:true as show_info %}
+{% with pagination_show_first_last|default:true as show_first_last %}
+{% with pagination_max_pages|default:7 as max_pages %}
+
+{% if page_obj.has_other_pages %}
+    <div class="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
+        <div class="flex items-center justify-between">
+            <!-- Mobile pagination -->
+            <div class="flex-1 flex justify-between sm:hidden">
+                {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}{% if pagination_query_params %}&{{ pagination_query_params }}{% endif %}" 
+                       class="relative inline-flex items-center px-4 py-2 border border-gray-300 
+                              {% if size == 'sm' %}text-xs
+                              {% elif size == 'lg' %}text-base
+                              {% else %}text-sm
+                              {% endif %}
+                              font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                        Previous
+                    </a>
+                {% endif %}
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}{% if pagination_query_params %}&{{ pagination_query_params }}{% endif %}" 
+                       class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 
+                              {% if size == 'sm' %}text-xs
+                              {% elif size == 'lg' %}text-base
+                              {% else %}text-sm
+                              {% endif %}
+                              font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                        Next
+                    </a>
+                {% endif %}
+            </div>
+
+            <!-- Desktop pagination -->
+            <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                {% if show_info %}
+                    <div>
+                        <p class="{% if size == 'sm' %}text-xs{% elif size == 'lg' %}text-base{% else %}text-sm{% endif %} text-gray-700">
+                            Showing
+                            <span class="font-medium">{{ page_obj.start_index }}</span>
+                            to
+                            <span class="font-medium">{{ page_obj.end_index }}</span>
+                            of
+                            <span class="font-medium">{{ page_obj.paginator.count }}</span>
+                            results
+                        </p>
+                    </div>
+                {% endif %}
+
+                <div>
+                    <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                        {% comment %} First page {% endcomment %}
+                        {% if show_first_last and page_obj.number > 1 %}
+                            <a href="?page=1{% if pagination_query_params %}&{{ pagination_query_params }}{% endif %}" 
+                               class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white 
+                                      {% if size == 'sm' %}text-xs
+                                      {% elif size == 'lg' %}text-base
+                                      {% else %}text-sm
+                                      {% endif %}
+                                      font-medium text-gray-500 hover:bg-gray-50">
+                                <span class="sr-only">First</span>
+                                <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M15.707 15.707a1 1 0 01-1.414 0l-5-5a1 1 0 010-1.414l5-5a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 010 1.414zm-6 0a1 1 0 01-1.414 0l-5-5a1 1 0 010-1.414l5-5a1 1 0 011.414 1.414L5.414 10l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
+                                </svg>
+                            </a>
+                        {% endif %}
+
+                        {% comment %} Previous page {% endcomment %}
+                        {% if page_obj.has_previous %}
+                            <a href="?page={{ page_obj.previous_page_number }}{% if pagination_query_params %}&{{ pagination_query_params }}{% endif %}" 
+                               class="relative inline-flex items-center px-2 py-2 
+                                      {% if not show_first_last or page_obj.number == 2 %}rounded-l-md{% endif %}
+                                      border border-gray-300 bg-white 
+                                      {% if size == 'sm' %}text-xs
+                                      {% elif size == 'lg' %}text-base
+                                      {% else %}text-sm
+                                      {% endif %}
+                                      font-medium text-gray-500 hover:bg-gray-50">
+                                <span class="sr-only">Previous</span>
+                                <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                </svg>
+                            </a>
+                        {% endif %}
+
+                        {% comment %} Page numbers {% endcomment %}
+                        {% with page_obj.paginator.page_range as page_range %}
+                        {% with page_obj.number as current %}
+                        
+                        {% comment %} Calculate visible page range {% endcomment %}
+                        {% with max_pages|add:"-1"|floatformat:0|divideby:2|floatformat:0 as half_pages %}
+                        {% with current|add:half_pages as end_range %}
+                        {% with current|add:half_pages|add:"-"|add:max_pages|add:"1" as start_range %}
+                        
+                        {% for num in page_range %}
+                            {% if num >= start_range and num <= end_range %}
+                                {% if num == current %}
+                                    <span class="bg-indigo-50 border-indigo-500 text-indigo-600 relative inline-flex items-center px-4 py-2 border 
+                                                 {% if size == 'sm' %}text-xs
+                                                 {% elif size == 'lg' %}text-base
+                                                 {% else %}text-sm
+                                                 {% endif %}
+                                                 font-medium">
+                                        {{ num }}
+                                    </span>
+                                {% else %}
+                                    <a href="?page={{ num }}{% if pagination_query_params %}&{{ pagination_query_params }}{% endif %}" 
+                                       class="bg-white border-gray-300 text-gray-500 hover:bg-gray-50 relative inline-flex items-center px-4 py-2 border 
+                                              {% if size == 'sm' %}text-xs
+                                              {% elif size == 'lg' %}text-base
+                                              {% else %}text-sm
+                                              {% endif %}
+                                              font-medium">
+                                        {{ num }}
+                                    </a>
+                                {% endif %}
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% endwith %}
+                        {% endwith %}
+                        {% endwith %}
+                        {% endwith %}
+                        {% endwith %}
+
+                        {% comment %} Next page {% endcomment %}
+                        {% if page_obj.has_next %}
+                            <a href="?page={{ page_obj.next_page_number }}{% if pagination_query_params %}&{{ pagination_query_params }}{% endif %}" 
+                               class="relative inline-flex items-center px-2 py-2 
+                                      {% if not show_first_last or page_obj.next_page_number == page_obj.paginator.num_pages %}rounded-r-md{% endif %}
+                                      border border-gray-300 bg-white 
+                                      {% if size == 'sm' %}text-xs
+                                      {% elif size == 'lg' %}text-base
+                                      {% else %}text-sm
+                                      {% endif %}
+                                      font-medium text-gray-500 hover:bg-gray-50">
+                                <span class="sr-only">Next</span>
+                                <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                                </svg>
+                            </a>
+                        {% endif %}
+
+                        {% comment %} Last page {% endcomment %}
+                        {% if show_first_last and page_obj.number < page_obj.paginator.num_pages %}
+                            <a href="?page={{ page_obj.paginator.num_pages }}{% if pagination_query_params %}&{{ pagination_query_params }}{% endif %}" 
+                               class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white 
+                                      {% if size == 'sm' %}text-xs
+                                      {% elif size == 'lg' %}text-base
+                                      {% else %}text-sm
+                                      {% endif %}
+                                      font-medium text-gray-500 hover:bg-gray-50">
+                                <span class="sr-only">Last</span>
+                                <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M10.293 15.707a1 1 0 010-1.414L14.586 10l-4.293-4.293a1 1 0 111.414-1.414l5 5a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0zm-6 0a1 1 0 010-1.414L8.586 10 4.293 5.707a1 1 0 011.414-1.414l5 5a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                                </svg>
+                            </a>
+                        {% endif %}
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endif %}
+
+{% endwith %} {# max_pages #}
+{% endwith %} {# show_first_last #}
+{% endwith %} {# show_info #}
+{% endwith %} {# size #}

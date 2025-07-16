@@ -1,0 +1,1866 @@
+from django.db import models
+from django.contrib.auth import get_user_model
+from django.core.validators import MinLengthValidator
+from django.core.exceptions import ValidationError
+from django.utils import timezone
+from decimal import Decimal
+
+User = get_user_model()
+
+
+class Rank(models.Model):
+    name = models.CharField(
+        max_length=50,
+        unique=True,
+        help_text="Rank name (e.g., Guild Leader, Officer, Raider)"
+    )
+    
+    level = models.IntegerField(
+        unique=True,
+        help_text="Hierarchy level (lower number = higher rank)"
+    )
+    
+    description = models.TextField(
+        blank=True,
+        help_text="Description of rank permissions and responsibilities"
+    )
+    
+    permissions = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="JSON field for storing rank-specific permissions"
+    )
+    
+    color = models.CharField(
+        max_length=7,
+        default="#000000",
+        help_text="Hex color code for rank display"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['level']
+        indexes = [
+            models.Index(fields=['level']),
+        ]
+    
+    def __str__(self):
+        return f"{self.name} (Level {self.level})"
+    
+    def clean(self):
+        # Ensure rank names are properly formatted
+        if self.name:
+            self.name = self.name.strip().title()
+
+
+class Character(models.Model):
+    name = models.CharField(
+        max_length=64,
+        unique=True,
+        validators=[MinLengthValidator(2)],
+        help_text="Character name (must be unique)"
+    )
+    
+    character_class = models.CharField(
+        max_length=32,
+        help_text="Character class (e.g., Warrior, Cleric, etc.)"
+    )
+    
+    level = models.IntegerField(
+        default=1,
+        help_text="Character level"
+    )
+    
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('inactive', 'Inactive'),
+        ('retired', 'Retired'),
+    ]
+    
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='active',
+        help_text="Character status"
+    )
+    
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='characters',
+        help_text="The user who owns this character"
+    )
+    
+    description = models.TextField(
+        blank=True,
+        help_text="Optional character description or notes"
+    )
+    
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Whether this character is currently active"
+    )
+    
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="When this character was created"
+    )
+    
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        help_text="When this character was last updated"
+    )
+    
+    # Main/Alt character relationships
+    main_character = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='alt_characters',
+        help_text="Main character if this is an alt (null if this is a main character)"
+    )
+    
+    class Meta:
+        ordering = ['name']
+        indexes = [
+            models.Index(fields=['user', 'is_active']),
+            models.Index(fields=['character_class']),
+        ]
+        permissions = [
+            ("can_use_discord_api", "Can use Discord bot API"),
+            ("can_manage_discord_links", "Can manage Discord user links"),
+            ("can_view_member_data", "Can view detailed member data"),
+            ("can_modify_member_status", "Can modify member status"),
+        ]
+    
+    def __str__(self):
+        return f"{self.name} ({self.character_class} L{self.level})"
+    
+    def save(self, *args, **kwargs):
+        # Ensure character name is properly capitalized
+        if self.name:
+            self.name = self.name.strip().title()
+        super().save(*args, **kwargs)
+    
+    # Main/Alt character helper methods
+    @property
+    def is_main(self):
+        """True if this is a main character (no main_character set)."""
+        return self.main_character is None
+    
+    @property
+    def is_alt(self):
+        """True if this is an alt character (has main_character set)."""
+        return self.main_character is not None
+    
+    def get_main_character(self):
+        """Get the main character for this character (returns self if already main)."""
+        return self.main_character if self.main_character else self
+    
+    def get_all_alts(self):
+        """Get all alt characters for this character (only works if this is a main character)."""
+        if self.is_alt:
+            # If this is an alt, delegate to the main character
+            return self.main_character.get_all_alts()
+        return self.alt_characters.all()
+    
+    def get_character_family(self):
+        """Get all characters in this character's family (main + all alts)."""
+        main_char = self.get_main_character()
+        # Use a queryset union to combine main character and all alts
+        main_qs = Character.objects.filter(id=main_char.id)
+        alts_qs = main_char.get_all_alts()
+        return main_qs.union(alts_qs)
+    
+    def clean(self):
+        """Validate the character data."""
+        super().clean()
+        
+        # Ensure character can't be its own main character
+        if self.main_character and self.main_character.id == self.id:
+            raise ValidationError("Character cannot be its own main character")
+        
+        # Ensure alt characters can't have their own alts (no nested alt relationships)
+        if self.main_character and self.main_character.main_character:
+            raise ValidationError("Alt characters cannot have their own alt characters")
+    
+
+
+class CharacterOwnership(models.Model):
+    """Track character ownership changes over time"""
+    
+    character = models.ForeignKey(
+        Character,
+        on_delete=models.CASCADE,
+        related_name='ownership_history',
+        help_text="The character being transferred"
+    )
+    
+    previous_owner = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='characters_transferred_from',
+        help_text="Previous owner (null for initial creation)"
+    )
+    
+    new_owner = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='characters_transferred_to',
+        help_text="New owner of the character"
+    )
+    
+    transfer_date = models.DateTimeField(
+        auto_now_add=True,
+        help_text="When the transfer occurred"
+    )
+    
+    TRANSFER_REASONS = [
+        ('created', 'Character Created'),
+        ('manual', 'Manual Transfer'),
+        ('inactive', 'Inactive User Transfer'),
+        ('left_guild', 'User Left Guild'),
+        ('returned', 'Returned to Original Owner'),
+        ('other', 'Other'),
+    ]
+    
+    reason = models.CharField(
+        max_length=20,
+        choices=TRANSFER_REASONS,
+        default='manual',
+        help_text="Reason for the transfer"
+    )
+    
+    notes = models.TextField(
+        blank=True,
+        help_text="Additional notes about the transfer"
+    )
+    
+    transferred_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='character_transfers_initiated',
+        help_text="Admin/officer who initiated the transfer"
+    )
+    
+    class Meta:
+        ordering = ['-transfer_date']
+        indexes = [
+            models.Index(fields=['character', '-transfer_date']),
+            models.Index(fields=['new_owner', '-transfer_date']),
+            models.Index(fields=['previous_owner', '-transfer_date']),
+        ]
+        verbose_name_plural = "Character ownership history"
+    
+    def __str__(self):
+        if self.previous_owner:
+            return f"{self.character.name}: {self.previous_owner.username} → {self.new_owner.username} ({self.transfer_date.date()})"
+        return f"{self.character.name}: Created for {self.new_owner.username} ({self.transfer_date.date()})"
+    
+    def clean(self):
+        # Validate that previous_owner and new_owner are different
+        if self.previous_owner and self.previous_owner == self.new_owner:
+            raise ValidationError("Previous owner and new owner cannot be the same.")
+    
+    @classmethod
+    def record_transfer(cls, character, new_owner, reason='manual', notes='', transferred_by=None):
+        """Helper method to record a character transfer"""
+        previous_owner = character.user
+        
+        # Create the ownership record
+        ownership_record = cls.objects.create(
+            character=character,
+            previous_owner=previous_owner,
+            new_owner=new_owner,
+            reason=reason,
+            notes=notes,
+            transferred_by=transferred_by
+        )
+        
+        # Update the character's current owner
+        character.user = new_owner
+        character.save()
+        
+        return ownership_record
+
+
+class Event(models.Model):
+    """
+    Represents different types of raid events that can award DKP points.
+    Examples: Main Raid, Off-Night Raid, Special Event, etc.
+    """
+    name = models.CharField(
+        max_length=100,
+        unique=True,
+        help_text="Name of the event type (e.g., 'Main Raid', 'Off Night')"
+    )
+    
+    description = models.TextField(
+        blank=True,
+        help_text="Description of the event type"
+    )
+    
+    base_points = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('10.00'),
+        help_text="Base DKP points awarded for attendance"
+    )
+    
+    on_time_bonus = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('5.00'),
+        help_text="Additional points for being on time"
+    )
+    
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Whether this event type is currently active"
+    )
+    
+    color = models.CharField(
+        max_length=7,
+        default="#007bff",
+        help_text="Hex color code for event display"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['name']
+        indexes = [
+            models.Index(fields=['is_active']),
+        ]
+    
+    def __str__(self):
+        return f"{self.name} ({self.base_points} DKP)"
+    
+    def clean(self):
+        # Ensure event name is properly formatted
+        if self.name:
+            self.name = self.name.strip().title()
+
+
+class Raid(models.Model):
+    """
+    Represents a specific raid instance with attendance tracking.
+    """
+    event = models.ForeignKey(
+        Event,
+        on_delete=models.CASCADE,
+        related_name='raids',
+        help_text="Type of event this raid represents"
+    )
+    
+    title = models.CharField(
+        max_length=200,
+        help_text="Specific title for this raid instance"
+    )
+    
+    date = models.DateField(
+        help_text="Date of the raid"
+    )
+    
+    start_time = models.TimeField(
+        help_text="Scheduled start time"
+    )
+    
+    end_time = models.TimeField(
+        null=True,
+        blank=True,
+        help_text="Actual end time (optional)"
+    )
+    
+    leader = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='led_raids',
+        help_text="Raid leader"
+    )
+    
+    notes = models.TextField(
+        blank=True,
+        help_text="Additional notes about the raid"
+    )
+    
+    STATUS_CHOICES = [
+        ('scheduled', 'Scheduled'),
+        ('in_progress', 'In Progress'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='scheduled',
+        help_text="Current status of the raid"
+    )
+    
+    # Attendance parsing settings
+    parse_attendance = models.BooleanField(
+        default=True,
+        help_text="Automatically parse character names to award points"
+    )
+    
+    points_awarded = models.BooleanField(
+        default=False,
+        help_text="Whether DKP points have been awarded for this raid"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-date', '-start_time']
+        indexes = [
+            models.Index(fields=['date', 'status']),
+            models.Index(fields=['event', 'date']),
+        ]
+        unique_together = ['event', 'date', 'start_time']
+    
+    def __str__(self):
+        return f"{self.title} - {self.date}"
+    
+    @property
+    def formatted_datetime(self):
+        """Return formatted date and time string"""
+        return f"{self.date.strftime('%Y-%m-%d')} at {self.start_time.strftime('%H:%M')}"
+    
+    def get_attendance_count(self):
+        """Get total number of attendees"""
+        return self.attendance_records.count()
+    
+    def get_on_time_count(self):
+        """Get number of on-time attendees"""
+        return self.attendance_records.filter(on_time=True).count()
+    
+    def award_points(self, created_by=None):
+        """
+        Award DKP points to all attendees of this raid.
+        Returns list of created PointAdjustment objects.
+        """
+        if self.points_awarded:
+            raise ValidationError("Points have already been awarded for this raid.")
+        
+        from ..dkp.models import DKPManager
+        
+        adjustments = []
+        
+        for attendance in self.attendance_records.all():
+            # Award base points
+            base_adjustment = DKPManager.award_points(
+                user=attendance.user,
+                points=self.event.base_points,
+                adjustment_type='raid_attendance',
+                description=f"Raid attendance: {self.title}",
+                character_name=attendance.character_name,
+                created_by=created_by
+            )
+            adjustments.append(base_adjustment)
+            
+            # Award on-time bonus if applicable
+            if attendance.on_time and self.event.on_time_bonus > 0:
+                bonus_adjustment = DKPManager.award_points(
+                    user=attendance.user,
+                    points=self.event.on_time_bonus,
+                    adjustment_type='raid_bonus',
+                    description=f"On-time bonus: {self.title}",
+                    character_name=attendance.character_name,
+                    created_by=created_by
+                )
+                adjustments.append(bonus_adjustment)
+        
+        # Mark points as awarded
+        self.points_awarded = True
+        self.save()
+        
+        return adjustments
+
+
+class RaidAttendance(models.Model):
+    """
+    Tracks attendance for specific raids with character information.
+    Links users to raids through character name snapshots.
+    """
+    raid = models.ForeignKey(
+        Raid,
+        on_delete=models.CASCADE,
+        related_name='attendance_records',
+        help_text="The raid this attendance record is for"
+    )
+    
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='raid_attendance',
+        help_text="The user who attended"
+    )
+    
+    character_name = models.CharField(
+        max_length=64,
+        help_text="Name of character used for this raid"
+    )
+    
+    on_time = models.BooleanField(
+        default=True,
+        help_text="Whether the user arrived on time"
+    )
+    
+    notes = models.TextField(
+        blank=True,
+        help_text="Additional notes about attendance"
+    )
+    
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="When this attendance was recorded"
+    )
+    
+    recorded_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='attendance_records_created',
+        help_text="Who recorded this attendance"
+    )
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['raid', 'user']),
+            models.Index(fields=['character_name']),
+            models.Index(fields=['created_at']),
+        ]
+        unique_together = ['raid', 'user']
+        verbose_name = "Raid Attendance"
+        verbose_name_plural = "Raid Attendance Records"
+    
+    def __str__(self):
+        status = "On Time" if self.on_time else "Late"
+        return f"{self.character_name} ({self.user.username}) - {self.raid.title} [{status}]"
+    
+    def clean(self):
+        # Validate that character belongs to user
+        if self.character_name and self.user:
+            user_characters = self.user.characters.filter(name__iexact=self.character_name)
+            if not user_characters.exists():
+                raise ValidationError(
+                    f"Character '{self.character_name}' does not belong to user '{self.user.username}'"
+                )
+    
+    def save(self, *args, **kwargs):
+        # Set character name from user's main character if not provided
+        if not self.character_name and self.user:
+            main_char = self.user.characters.filter(is_active=True).first()
+            if main_char:
+                self.character_name = main_char.name
+        
+        self.clean()
+        super().save(*args, **kwargs)
+    
+    @classmethod
+    def parse_character_list(cls, raid, character_names, recorded_by=None, all_on_time=True):
+        """
+        Parse a list of character names and create attendance records.
+        
+        Args:
+            raid: Raid instance
+            character_names: List of character names (strings)
+            recorded_by: User who is recording attendance
+            all_on_time: Whether to mark all as on-time (default True)
+            
+        Returns:
+            dict with 'created', 'errors', and 'warnings' lists
+        """
+        results = {
+            'created': [],
+            'errors': [],
+            'warnings': []
+        }
+        
+        for char_name in character_names:
+            char_name = char_name.strip()
+            if not char_name:
+                continue
+                
+            try:
+                # Find character in database
+                character = Character.objects.filter(name__iexact=char_name).first()
+                
+                if not character:
+                    results['errors'].append(f"Character '{char_name}' not found in database")
+                    continue
+                
+                # Check if attendance already exists
+                existing = cls.objects.filter(raid=raid, user=character.user).first()
+                if existing:
+                    results['warnings'].append(f"Attendance already recorded for {character.user.username}")
+                    continue
+                
+                # Create attendance record
+                attendance = cls.objects.create(
+                    raid=raid,
+                    user=character.user,
+                    character_name=character.name,
+                    on_time=all_on_time,
+                    recorded_by=recorded_by
+                )
+                
+                results['created'].append(attendance)
+                
+            except Exception as e:
+                results['errors'].append(f"Error processing '{char_name}': {str(e)}")
+        
+        return results
+
+
+class Item(models.Model):
+    """
+    Represents an item that can be distributed during raids.
+    """
+    name = models.CharField(
+        max_length=100,
+        unique=True,
+        help_text="Name of the item"
+    )
+    
+    description = models.TextField(
+        blank=True,
+        help_text="Description of the item"
+    )
+    
+    suggested_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Suggested DKP cost for this item"
+    )
+    
+    RARITY_CHOICES = [
+        ('common', 'Common'),
+        ('uncommon', 'Uncommon'),
+        ('rare', 'Rare'),
+        ('epic', 'Epic'),
+        ('legendary', 'Legendary'),
+    ]
+    
+    rarity = models.CharField(
+        max_length=20,
+        choices=RARITY_CHOICES,
+        default='common',
+        help_text="Rarity of the item"
+    )
+    
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Whether this item is currently active for distribution"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['name']
+        indexes = [
+            models.Index(fields=['rarity', 'is_active']),
+            models.Index(fields=['suggested_cost']),
+        ]
+    
+    def __str__(self):
+        return f"{self.name} ({self.get_rarity_display()})"
+    
+    def clean(self):
+        if self.name:
+            self.name = self.name.strip()
+    
+    def get_recent_distributions(self, limit=10):
+        """Get recent distributions of this item"""
+        return self.distributions.select_related('user', 'character', 'raid').order_by('-distributed_at')[:limit]
+    
+    def get_average_cost(self):
+        """Get the average cost this item was distributed for"""
+        from django.db.models import Avg
+        result = self.distributions.aggregate(avg_cost=Avg('point_cost'))
+        return result['avg_cost'] or Decimal('0.00')
+
+
+class LootDistribution(models.Model):
+    """
+    Tracks the distribution of items to players with DKP costs.
+    """
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='loot_received',
+        help_text="The user who received the item"
+    )
+    
+    item = models.ForeignKey(
+        Item,
+        on_delete=models.CASCADE,
+        related_name='distributions',
+        help_text="The item that was distributed"
+    )
+    
+    raid = models.ForeignKey(
+        Raid,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='loot_distributions',
+        help_text="The raid where this item was distributed"
+    )
+    
+    character_name = models.CharField(
+        max_length=64,
+        help_text="Character name at time of distribution"
+    )
+    
+    point_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text="DKP points spent on this item"
+    )
+    
+    quantity = models.PositiveIntegerField(
+        default=1,
+        help_text="Quantity of items distributed"
+    )
+    
+    notes = models.TextField(
+        blank=True,
+        help_text="Additional notes about the distribution"
+    )
+    
+    distributed_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="When the item was distributed"
+    )
+    
+    distributed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='loot_distributed',
+        help_text="Who distributed this item"
+    )
+    
+    # Discord integration fields
+    discord_message_id = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Discord message ID for reference"
+    )
+    
+    discord_channel_id = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Discord channel ID where distribution was announced"
+    )
+    
+    class Meta:
+        ordering = ['-distributed_at']
+        indexes = [
+            models.Index(fields=['user', '-distributed_at']),
+            models.Index(fields=['item', '-distributed_at']),
+            models.Index(fields=['raid', '-distributed_at']),
+            models.Index(fields=['character_name']),
+        ]
+        verbose_name = "Loot Distribution"
+        verbose_name_plural = "Loot Distributions"
+    
+    def __str__(self):
+        return f"{self.item.name} → {self.character_name} ({self.point_cost} DKP)"
+    
+    def clean(self):
+        # Validate character belongs to user
+        if self.character_name and self.user:
+            user_characters = self.user.characters.filter(name__iexact=self.character_name)
+            if not user_characters.exists():
+                raise ValidationError(
+                    f"Character '{self.character_name}' does not belong to user '{self.user.username}'"
+                )
+        
+        # Validate point cost is not negative
+        if self.point_cost < 0:
+            raise ValidationError("Point cost cannot be negative")
+    
+    def save(self, *args, **kwargs):
+        # Set character name from user's main character if not provided
+        if not self.character_name and self.user:
+            main_char = self.user.characters.filter(is_active=True).first()
+            if main_char:
+                self.character_name = main_char.name
+        
+        self.clean()
+        
+        # Check if user can afford the item (only for new distributions)
+        # Point deduction is handled automatically by signals
+        from ..dkp.models import DKPManager
+        if self.pk is None:  # New distribution
+            current_balance = DKPManager.get_user_balance(self.user)
+            total_cost = self.point_cost * self.quantity
+            if current_balance < total_cost:
+                raise ValidationError(
+                    f"Insufficient DKP. Current balance: {current_balance}, "
+                    f"Total cost: {total_cost}"
+                )
+        
+        super().save(*args, **kwargs)
+    
+    def process_point_deduction(self, created_by=None):
+        """
+        Process the DKP point deduction for this loot distribution.
+        Returns the created PointAdjustment record.
+        """
+        from ..dkp.models import DKPManager
+        
+        total_cost = self.point_cost * self.quantity
+        description = f"Loot: {self.item.name}"
+        if self.quantity > 1:
+            description += f" (x{self.quantity})"
+        
+        return DKPManager.deduct_points(
+            user=self.user,
+            points=total_cost,
+            adjustment_type='item_purchase',
+            description=description,
+            character_name=self.character_name,
+            created_by=created_by
+        )
+    
+    @classmethod
+    def distribute_item(cls, user, item, point_cost, character_name=None, raid=None, 
+                       quantity=1, notes='', distributed_by=None, discord_context=None):
+        """
+        Distribute an item to a user and automatically deduct DKP points via signals.
+        
+        Args:
+            user: User receiving the item
+            item: Item being distributed
+            point_cost: DKP cost per item
+            character_name: Character name (optional, will use main char if not provided)
+            raid: Raid where item was distributed (optional)
+            quantity: Number of items (default 1)
+            notes: Additional notes
+            distributed_by: User distributing the item
+            discord_context: Dict with discord_message_id and discord_channel_id
+            
+        Returns:
+            LootDistribution: The created distribution record
+        """
+        # Create the distribution record
+        # Point deduction is handled automatically by post_save signal
+        distribution = cls.objects.create(
+            user=user,
+            item=item,
+            raid=raid,
+            character_name=character_name,
+            point_cost=point_cost,
+            quantity=quantity,
+            notes=notes,
+            distributed_by=distributed_by,
+            discord_message_id=discord_context.get('message_id', '') if discord_context else '',
+            discord_channel_id=discord_context.get('channel_id', '') if discord_context else ''
+        )
+        
+        return distribution
+
+
+class LootAuditLog(models.Model):
+    """
+    Comprehensive audit trail for all loot-related actions.
+    Tracks creation, modification, and deletion of items and distributions.
+    """
+    
+    ACTION_TYPES = [
+        ('item_created', 'Item Created'),
+        ('item_updated', 'Item Updated'),
+        ('item_deleted', 'Item Deleted'),
+        ('item_activated', 'Item Activated'),
+        ('item_deactivated', 'Item Deactivated'),
+        ('distribution_created', 'Loot Distribution Created'),
+        ('distribution_updated', 'Loot Distribution Updated'),
+        ('distribution_deleted', 'Loot Distribution Deleted'),
+        ('distribution_refunded', 'Loot Distribution Refunded'),
+        ('points_deducted', 'DKP Points Deducted'),
+        ('points_refunded', 'DKP Points Refunded'),
+        ('admin_action', 'Administrative Action'),
+        ('system_action', 'System Action'),
+    ]
+    
+    # Core audit fields
+    action_type = models.CharField(
+        max_length=25,
+        choices=ACTION_TYPES,
+        help_text="Type of action performed"
+    )
+    
+    timestamp = models.DateTimeField(
+        auto_now_add=True,
+        help_text="When the action occurred"
+    )
+    
+    # User information
+    performed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='loot_audit_actions',
+        help_text="User who performed the action"
+    )
+    
+    affected_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='loot_audit_affected',
+        help_text="User affected by the action (recipient of loot, etc.)"
+    )
+    
+    # Related objects (optional, for linking to specific records)
+    item = models.ForeignKey(
+        Item,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='audit_logs',
+        help_text="Related item (if applicable)"
+    )
+    
+    distribution = models.ForeignKey(
+        LootDistribution,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='audit_logs',
+        help_text="Related loot distribution (if applicable)"
+    )
+    
+    raid = models.ForeignKey(
+        Raid,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='loot_audit_logs',
+        help_text="Related raid (if applicable)"
+    )
+    
+    # Detailed information
+    description = models.TextField(
+        help_text="Detailed description of the action"
+    )
+    
+    # Snapshot data for historical accuracy
+    character_name = models.CharField(
+        max_length=64,
+        blank=True,
+        help_text="Character name at time of action"
+    )
+    
+    point_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="DKP cost involved in the action (if applicable)"
+    )
+    
+    quantity = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Quantity of items involved (if applicable)"
+    )
+    
+    # Before/after state for changes
+    old_values = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Previous values before the change (JSON format)"
+    )
+    
+    new_values = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="New values after the change (JSON format)"
+    )
+    
+    # Additional context
+    ip_address = models.GenericIPAddressField(
+        null=True,
+        blank=True,
+        help_text="IP address from which the action was performed"
+    )
+    
+    user_agent = models.TextField(
+        blank=True,
+        help_text="User agent string for web-based actions"
+    )
+    
+    # Discord integration tracking
+    discord_context = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Discord-related context (message ID, channel, etc.)"
+    )
+    
+    # System metadata
+    request_id = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Request ID for tracking related actions"
+    )
+    
+    class Meta:
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['action_type', '-timestamp']),
+            models.Index(fields=['performed_by', '-timestamp']),
+            models.Index(fields=['affected_user', '-timestamp']),
+            models.Index(fields=['item', '-timestamp']),
+            models.Index(fields=['distribution', '-timestamp']),
+            models.Index(fields=['raid', '-timestamp']),
+            models.Index(fields=['character_name', '-timestamp']),
+            models.Index(fields=['-timestamp']),
+        ]
+        verbose_name = "Loot Audit Log"
+        verbose_name_plural = "Loot Audit Logs"
+    
+    def __str__(self):
+        action_display = self.get_action_type_display()
+        user_info = f"by {self.performed_by.username}" if self.performed_by else "by System"
+        if self.affected_user and self.affected_user != self.performed_by:
+            user_info += f" (affecting {self.affected_user.username})"
+        return f"{action_display} {user_info} at {self.timestamp.strftime('%Y-%m-%d %H:%M:%S')}"
+    
+    def get_summary(self):
+        """Get a concise summary of the audit log entry"""
+        summary_parts = []
+        
+        if self.item:
+            summary_parts.append(f"Item: {self.item.name}")
+        
+        if self.character_name:
+            summary_parts.append(f"Character: {self.character_name}")
+        
+        if self.point_cost:
+            cost_text = f"{self.point_cost} DKP"
+            if self.quantity and self.quantity > 1:
+                cost_text += f" (x{self.quantity})"
+            summary_parts.append(f"Cost: {cost_text}")
+        
+        if self.raid:
+            summary_parts.append(f"Raid: {self.raid.title}")
+        
+        return " | ".join(summary_parts) if summary_parts else "N/A"
+    
+    @classmethod
+    def log_item_action(cls, action_type, item, performed_by=None, description="", old_values=None, new_values=None, **kwargs):
+        """Helper method to log item-related actions"""
+        return cls.objects.create(
+            action_type=action_type,
+            item=item,
+            performed_by=performed_by,
+            description=description,
+            old_values=old_values or {},
+            new_values=new_values or {},
+            **kwargs
+        )
+    
+    @classmethod
+    def log_distribution_action(cls, action_type, distribution, performed_by=None, description="", **kwargs):
+        """Helper method to log distribution-related actions"""
+        return cls.objects.create(
+            action_type=action_type,
+            distribution=distribution,
+            item=distribution.item,
+            affected_user=distribution.user,
+            character_name=distribution.character_name,
+            point_cost=distribution.point_cost,
+            quantity=distribution.quantity,
+            raid=distribution.raid,
+            performed_by=performed_by,
+            description=description,
+            **kwargs
+        )
+    
+    @classmethod
+    def log_admin_action(cls, description, performed_by, affected_user=None, **kwargs):
+        """Helper method to log administrative actions"""
+        return cls.objects.create(
+            action_type='admin_action',
+            performed_by=performed_by,
+            affected_user=affected_user,
+            description=description,
+            **kwargs
+        )
+
+
+class MemberAttendanceSummary(models.Model):
+    """
+    Stores aggregated attendance statistics for each member.
+    This model is updated daily via management command for performance optimization.
+    """
+    
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='attendance_summaries',
+        help_text="The user whose attendance is being tracked"
+    )
+    
+    summary_date = models.DateField(
+        default=timezone.now,
+        help_text="Date this summary is calculated for"
+    )
+    
+    # Rolling average attendance rates (as percentages)
+    attendance_rate_7d = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Attendance rate over last 7 days (0-100%)"
+    )
+    
+    attendance_rate_30d = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Attendance rate over last 30 days (0-100%)"
+    )
+    
+    attendance_rate_60d = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Attendance rate over last 60 days (0-100%)"
+    )
+    
+    attendance_rate_90d = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Attendance rate over last 90 days (0-100%)"
+    )
+    
+    attendance_rate_lifetime = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Lifetime attendance rate (0-100%)"
+    )
+    
+    # Raw attendance counts for reference
+    total_raids_7d = models.PositiveIntegerField(
+        default=0,
+        help_text="Total raids available in last 7 days"
+    )
+    
+    attended_raids_7d = models.PositiveIntegerField(
+        default=0,
+        help_text="Raids attended in last 7 days"
+    )
+    
+    total_raids_30d = models.PositiveIntegerField(
+        default=0,
+        help_text="Total raids available in last 30 days"
+    )
+    
+    attended_raids_30d = models.PositiveIntegerField(
+        default=0,
+        help_text="Raids attended in last 30 days"
+    )
+    
+    total_raids_60d = models.PositiveIntegerField(
+        default=0,
+        help_text="Total raids available in last 60 days"
+    )
+    
+    attended_raids_60d = models.PositiveIntegerField(
+        default=0,
+        help_text="Raids attended in last 60 days"
+    )
+    
+    total_raids_90d = models.PositiveIntegerField(
+        default=0,
+        help_text="Total raids available in last 90 days"
+    )
+    
+    attended_raids_90d = models.PositiveIntegerField(
+        default=0,
+        help_text="Raids attended in last 90 days"
+    )
+    
+    total_raids_lifetime = models.PositiveIntegerField(
+        default=0,
+        help_text="Total raids available since member join"
+    )
+    
+    attended_raids_lifetime = models.PositiveIntegerField(
+        default=0,
+        help_text="Total raids attended since member join"
+    )
+    
+    # Voting eligibility
+    is_voting_eligible = models.BooleanField(
+        default=False,
+        help_text="Whether member is eligible to vote (≥15% attendance in 30 days)"
+    )
+    
+    # Streak tracking
+    current_attendance_streak = models.PositiveIntegerField(
+        default=0,
+        help_text="Current consecutive raids attended"
+    )
+    
+    longest_attendance_streak = models.PositiveIntegerField(
+        default=0,
+        help_text="Longest consecutive raids attended streak"
+    )
+    
+    # Timestamps
+    last_updated = models.DateTimeField(
+        auto_now=True,
+        help_text="When this summary was last updated"
+    )
+    
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="When this summary was first created"
+    )
+    
+    class Meta:
+        ordering = ['-summary_date', '-attendance_rate_30d']
+        indexes = [
+            models.Index(fields=['user', 'summary_date']),
+            models.Index(fields=['summary_date']),
+            models.Index(fields=['attendance_rate_30d']),
+            models.Index(fields=['attendance_rate_90d']),
+            models.Index(fields=['is_voting_eligible']),
+            models.Index(fields=['user', '-summary_date']),
+        ]
+        unique_together = ['user', 'summary_date']
+        verbose_name = "Member Attendance Summary"
+        verbose_name_plural = "Member Attendance Summaries"
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.summary_date} (30d: {self.attendance_rate_30d}%)"
+    
+    @property
+    def voting_status_display(self):
+        """Human-readable voting eligibility status"""
+        if self.is_voting_eligible:
+            return f"Eligible ({self.attendance_rate_30d}% in 30d)"
+        else:
+            needed = Decimal('15.00') - self.attendance_rate_30d
+            if needed > 0:
+                return f"Ineligible (need {needed:.1f}% more)"
+            else:
+                return "Eligible"
+    
+    @property
+    def attendance_trend(self):
+        """Calculate attendance trend direction"""
+        if self.attendance_rate_7d > self.attendance_rate_30d:
+            return "improving"
+        elif self.attendance_rate_7d < self.attendance_rate_30d:
+            return "declining"
+        else:
+            return "stable"
+    
+    def get_period_summary(self, period='30d'):
+        """Get attendance summary for a specific period"""
+        period_mapping = {
+            '7d': (self.attended_raids_7d, self.total_raids_7d, self.attendance_rate_7d),
+            '30d': (self.attended_raids_30d, self.total_raids_30d, self.attendance_rate_30d),
+            '60d': (self.attended_raids_60d, self.total_raids_60d, self.attendance_rate_60d),
+            '90d': (self.attended_raids_90d, self.total_raids_90d, self.attendance_rate_90d),
+            'lifetime': (self.attended_raids_lifetime, self.total_raids_lifetime, self.attendance_rate_lifetime),
+        }
+        
+        if period not in period_mapping:
+            raise ValueError(f"Invalid period '{period}'. Must be one of: {list(period_mapping.keys())}")
+        
+        attended, total, rate = period_mapping[period]
+        return {
+            'attended': attended,
+            'total': total,
+            'rate': rate,
+            'percentage': f"{rate:.1f}%"
+        }
+    
+    @classmethod
+    def get_voting_eligible_members(cls, date=None):
+        """Get all members eligible to vote as of a specific date"""
+        if date is None:
+            date = timezone.now().date()
+        
+        return cls.objects.filter(
+            summary_date=date,
+            is_voting_eligible=True
+        ).select_related('user')
+    
+    @classmethod
+    def get_attendance_leaderboard(cls, period='30d', limit=10, date=None):
+        """Get attendance leaderboard for a specific period"""
+        if date is None:
+            date = timezone.now().date()
+        
+        period_field_mapping = {
+            '7d': 'attendance_rate_7d',
+            '30d': 'attendance_rate_30d',
+            '60d': 'attendance_rate_60d',
+            '90d': 'attendance_rate_90d',
+            'lifetime': 'attendance_rate_lifetime',
+        }
+        
+        if period not in period_field_mapping:
+            raise ValueError(f"Invalid period '{period}'. Must be one of: {list(period_field_mapping.keys())}")
+        
+        order_field = f"-{period_field_mapping[period]}"
+        
+        return cls.objects.filter(
+            summary_date=date
+        ).select_related('user').order_by(order_field)[:limit]
+    
+    @classmethod
+    def calculate_attendance_rate(cls, attended_count, total_count):
+        """Calculate attendance rate as percentage"""
+        if total_count == 0:
+            return Decimal('0.00')
+        return (Decimal(attended_count) / Decimal(total_count)) * 100
+    
+    @classmethod
+    def get_or_create_for_user_date(cls, user, date=None):
+        """
+        Get or create attendance summary for user and specific date.
+        
+        Args:
+            user: User instance
+            date: Date for summary (defaults to today)
+            
+        Returns:
+            tuple: (MemberAttendanceSummary instance, created boolean)
+        """
+        if date is None:
+            date = timezone.now().date()
+            
+        summary, created = cls.objects.get_or_create(
+            user=user,
+            summary_date=date,
+            defaults={
+                'attendance_rate_7d': Decimal('0.00'),
+                'attendance_rate_30d': Decimal('0.00'),
+                'attendance_rate_60d': Decimal('0.00'),
+                'attendance_rate_90d': Decimal('0.00'),
+                'attendance_rate_lifetime': Decimal('0.00'),
+            }
+        )
+        
+        return summary, created
+
+
+class Application(models.Model):
+    """
+    Tracks recruitment applications from potential guild members.
+    Supports comprehensive applicant information and status workflow.
+    """
+    
+    # Applicant contact information
+    applicant_name = models.CharField(
+        max_length=100,
+        help_text="Real name or preferred name of the applicant"
+    )
+    
+    applicant_email = models.EmailField(
+        help_text="Email address for contact"
+    )
+    
+    discord_username = models.CharField(
+        max_length=100,
+        help_text="Discord username for communication"
+    )
+    
+    # Character information
+    character_name = models.CharField(
+        max_length=64,
+        validators=[MinLengthValidator(2)],
+        help_text="Primary character name for the application"
+    )
+    
+    character_class = models.CharField(
+        max_length=32,
+        help_text="Character class (e.g., Warrior, Cleric, Wizard)"
+    )
+    
+    character_level = models.PositiveIntegerField(
+        help_text="Current character level"
+    )
+    
+    character_spec = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Character specialization or build (optional)"
+    )
+    
+    # Application content
+    guild_experience = models.TextField(
+        help_text="Previous guild experience and EverQuest history"
+    )
+    
+    raid_experience = models.TextField(
+        help_text="Raid experience and knowledge of current content"
+    )
+    
+    play_schedule = models.TextField(
+        help_text="Available play times and raid schedule compatibility"
+    )
+    
+    motivation = models.TextField(
+        help_text="Why they want to join the guild"
+    )
+    
+    references = models.TextField(
+        blank=True,
+        help_text="References from current or former guild members (optional)"
+    )
+    
+    additional_info = models.TextField(
+        blank=True,
+        help_text="Any additional information the applicant wants to share"
+    )
+    
+    # Application status workflow
+    APPLICATION_STATUS_CHOICES = [
+        ('submitted', 'Submitted'),
+        ('under_review', 'Under Review'),
+        ('officer_approved', 'Officer Approved'),
+        ('voting_open', 'Voting Open'),
+        ('voting_closed', 'Voting Closed'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('withdrawn', 'Withdrawn'),
+        ('expired', 'Expired'),
+    ]
+    
+    status = models.CharField(
+        max_length=20,
+        choices=APPLICATION_STATUS_CHOICES,
+        default='submitted',
+        help_text="Current status of the application"
+    )
+    
+    # Timeline tracking
+    submitted_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="When the application was submitted"
+    )
+    
+    reviewed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the application was first reviewed by officers"
+    )
+    
+    voting_opened_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When member voting was opened"
+    )
+    
+    voting_deadline = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Deadline for voting (typically 48 hours after opening)"
+    )
+    
+    decision_made_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the final decision was made"
+    )
+    
+    # Staff tracking
+    reviewed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='applications_reviewed',
+        help_text="Officer who reviewed the application"
+    )
+    
+    decision_made_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='applications_decided',
+        help_text="Officer who made the final decision"
+    )
+    
+    # Review notes and feedback
+    officer_notes = models.TextField(
+        blank=True,
+        help_text="Internal notes from officers (not visible to applicant)"
+    )
+    
+    rejection_reason = models.TextField(
+        blank=True,
+        help_text="Reason for rejection (shared with applicant)"
+    )
+    
+    # Associated user account (created after approval)
+    approved_user = models.OneToOneField(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='application',
+        help_text="User account created after approval"
+    )
+    
+    # Discord integration
+    discord_message_id = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Discord message ID for application summary"
+    )
+    
+    discord_thread_id = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Discord thread ID for discussion"
+    )
+    
+    # Metadata
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        help_text="When the application was last updated"
+    )
+    
+    ip_address = models.GenericIPAddressField(
+        null=True,
+        blank=True,
+        help_text="IP address from which application was submitted"
+    )
+    
+    class Meta:
+        ordering = ['-submitted_at']
+        indexes = [
+            models.Index(fields=['status', '-submitted_at']),
+            models.Index(fields=['character_name']),
+            models.Index(fields=['applicant_email']),
+            models.Index(fields=['discord_username']),
+            models.Index(fields=['voting_deadline']),
+            models.Index(fields=['reviewed_by', '-submitted_at']),
+            models.Index(fields=['-submitted_at']),
+        ]
+        verbose_name = "Guild Application"
+        verbose_name_plural = "Guild Applications"
+        permissions = [
+            ('review_applications', 'Can review and process applications'),
+            ('manage_applications', 'Can manage all aspects of applications'),
+            ('vote_on_applications', 'Can vote on applications'),
+            ('view_application_votes', 'Can view voting results'),
+            ('view_sensitive_application_info', 'Can view sensitive applicant information'),
+        ]
+    
+    def __str__(self):
+        return f"{self.character_name} ({self.applicant_name}) - {self.get_status_display()}"
+    
+    def save(self, *args, **kwargs):
+        """Custom save to handle status transitions and timeline updates."""
+        # Auto-set reviewed_at when status changes to under_review
+        if self.status in ['under_review', 'officer_approved'] and not self.reviewed_at:
+            self.reviewed_at = timezone.now()
+        
+        # Auto-set voting_opened_at when voting opens
+        if self.status == 'voting_open' and not self.voting_opened_at:
+            self.voting_opened_at = timezone.now()
+            # Set voting deadline to 48 hours from now if not already set
+            if not self.voting_deadline:
+                self.voting_deadline = timezone.now() + timezone.timedelta(hours=48)
+        
+        # Auto-set decision_made_at when final decision is made
+        if self.status in ['approved', 'rejected'] and not self.decision_made_at:
+            self.decision_made_at = timezone.now()
+        
+        super().save(*args, **kwargs)
+    
+    @property
+    def is_voting_active(self):
+        """Check if voting is currently active for this application."""
+        if self.status != 'voting_open':
+            return False
+        if not self.voting_deadline:
+            return True
+        return timezone.now() < self.voting_deadline
+    
+    @property
+    def voting_time_remaining(self):
+        """Get time remaining for voting (returns timedelta or None)."""
+        if not self.is_voting_active or not self.voting_deadline:
+            return None
+        remaining = self.voting_deadline - timezone.now()
+        return remaining if remaining.total_seconds() > 0 else None
+    
+    def get_vote_summary(self):
+        """Get summary of votes cast for this application."""
+        from django.db.models import Count
+        
+        votes = self.votes.aggregate(
+            total_votes=Count('id'),
+            yes_votes=Count('id', filter=models.Q(vote='yes')),
+            no_votes=Count('id', filter=models.Q(vote='no')),
+            abstain_votes=Count('id', filter=models.Q(vote='abstain')),
+        )
+        
+        # Calculate weighted votes if attendance weights are used
+        total_weight = sum(vote.vote_weight for vote in self.votes.all())
+        yes_weight = sum(vote.vote_weight for vote in self.votes.filter(vote='yes'))
+        no_weight = sum(vote.vote_weight for vote in self.votes.filter(vote='no'))
+        
+        votes.update({
+            'total_weight': total_weight,
+            'yes_weight': yes_weight,
+            'no_weight': no_weight,
+            'approval_percentage': (yes_weight / total_weight * 100) if total_weight > 0 else 0,
+        })
+        
+        return votes
+    
+    def can_user_vote(self, user):
+        """Check if a user is eligible to vote on this application."""
+        if self.status != 'voting_open' or not self.is_voting_active:
+            return False
+        
+        # Check if user has already voted
+        if self.votes.filter(voter=user).exists():
+            return False
+        
+        # Check voting eligibility based on attendance
+        try:
+            attendance_summary = user.attendance_summaries.latest('summary_date')
+            return attendance_summary.is_voting_eligible
+        except MemberAttendanceSummary.DoesNotExist:
+            return False
+    
+    def calculate_vote_weight(self, user):
+        """Calculate vote weight for a user based on attendance."""
+        try:
+            attendance_summary = user.attendance_summaries.latest('summary_date')
+            
+            # Base weight of 1.0 for eligible voters
+            if not attendance_summary.is_voting_eligible:
+                return 0.0
+            
+            # Bonus weight based on 30-day attendance rate
+            # 15-50% attendance: 1.0 weight
+            # 51-75% attendance: 1.5 weight  
+            # 76-100% attendance: 2.0 weight
+            attendance_rate = float(attendance_summary.attendance_rate_30d)
+            
+            if attendance_rate >= 76:
+                return 2.0
+            elif attendance_rate >= 51:
+                return 1.5
+            else:
+                return 1.0
+                
+        except MemberAttendanceSummary.DoesNotExist:
+            return 0.0
+    
+    @classmethod
+    def get_active_applications(cls):
+        """Get applications that are currently in active states."""
+        active_statuses = ['submitted', 'under_review', 'officer_approved', 'voting_open']
+        return cls.objects.filter(status__in=active_statuses)
+    
+    @classmethod
+    def get_voting_applications(cls):
+        """Get applications currently open for voting."""
+        return cls.objects.filter(
+            status='voting_open',
+            voting_deadline__gt=timezone.now()
+        )
+
+
+class ApplicationVote(models.Model):
+    """
+    Tracks individual member votes on guild applications.
+    Includes attendance-based vote weighting and eligibility checks.
+    """
+    
+    application = models.ForeignKey(
+        Application,
+        on_delete=models.CASCADE,
+        related_name='votes',
+        help_text="The application being voted on"
+    )
+    
+    voter = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='application_votes',
+        help_text="The user casting the vote"
+    )
+    
+    VOTE_CHOICES = [
+        ('yes', 'Yes - Approve'),
+        ('no', 'No - Reject'),
+        ('abstain', 'Abstain'),
+    ]
+    
+    vote = models.CharField(
+        max_length=10,
+        choices=VOTE_CHOICES,
+        help_text="The vote choice"
+    )
+    
+    vote_weight = models.DecimalField(
+        max_digits=3,
+        decimal_places=1,
+        default=Decimal('1.0'),
+        help_text="Weight of this vote based on attendance"
+    )
+    
+    # Voting context and reasoning
+    reasoning = models.TextField(
+        blank=True,
+        help_text="Optional reasoning for the vote (visible to officers)"
+    )
+    
+    # Attendance snapshot at time of voting
+    attendance_rate_30d = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        help_text="Voter's 30-day attendance rate at time of vote"
+    )
+    
+    was_voting_eligible = models.BooleanField(
+        default=True,
+        help_text="Whether voter was eligible at time of vote"
+    )
+    
+    # Timestamps
+    voted_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="When the vote was cast"
+    )
+    
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        help_text="When the vote was last updated"
+    )
+    
+    # Metadata
+    ip_address = models.GenericIPAddressField(
+        null=True,
+        blank=True,
+        help_text="IP address from which vote was cast"
+    )
+    
+    class Meta:
+        ordering = ['-voted_at']
+        indexes = [
+            models.Index(fields=['application', 'vote']),
+            models.Index(fields=['voter', '-voted_at']),
+            models.Index(fields=['vote', 'vote_weight']),
+            models.Index(fields=['-voted_at']),
+        ]
+        unique_together = ['application', 'voter']
+        verbose_name = "Application Vote"
+        verbose_name_plural = "Application Votes"
+        permissions = [
+            ('view_application_vote_details', 'Can view detailed vote information'),
+            ('manage_application_votes', 'Can manage and modify application votes'),
+        ]
+    
+    def __str__(self):
+        return f"{self.voter.username} voted {self.vote} on {self.application.character_name} (weight: {self.vote_weight})"
+    
+    def save(self, *args, **kwargs):
+        """Custom save to capture attendance data and calculate vote weight."""
+        if not self.pk:  # Only on creation
+            # Capture voter's current attendance data
+            try:
+                attendance_summary = self.voter.attendance_summaries.latest('summary_date')
+                self.attendance_rate_30d = attendance_summary.attendance_rate_30d
+                self.was_voting_eligible = attendance_summary.is_voting_eligible
+                
+                # Calculate vote weight
+                self.vote_weight = Decimal(str(self.application.calculate_vote_weight(self.voter)))
+                
+            except MemberAttendanceSummary.DoesNotExist:
+                # Fallback for users without attendance data
+                self.attendance_rate_30d = Decimal('0.00')
+                self.was_voting_eligible = False
+                self.vote_weight = Decimal('0.0')
+        
+        super().save(*args, **kwargs)
+    
+    def clean(self):
+        """Validate vote eligibility and timing."""
+        super().clean()
+        
+        # Check if voting is still active
+        if not self.application.is_voting_active:
+            raise ValidationError("Voting is not currently active for this application.")
+        
+        # Check if user is eligible to vote
+        if not self.application.can_user_vote(self.voter):
+            raise ValidationError("User is not eligible to vote on this application.")
+    
+    @property
+    def is_weighted_vote(self):
+        """Check if this vote has additional weight beyond base 1.0."""
+        return self.vote_weight > Decimal('1.0')
+    
+    @property
+    def vote_display_with_weight(self):
+        """Get formatted vote display including weight if > 1.0."""
+        vote_text = self.get_vote_display()
+        if self.vote_weight > Decimal('1.0'):
+            return f"{vote_text} (weight: {self.vote_weight})"
+        return vote_text
+    
+    @classmethod
+    def get_vote_summary_for_application(cls, application):
+        """Get detailed vote summary for an application."""
+        votes = cls.objects.filter(application=application)
+        
+        summary = {
+            'total_votes': votes.count(),
+            'total_weight': sum(vote.vote_weight for vote in votes),
+            'yes_votes': votes.filter(vote='yes').count(),
+            'no_votes': votes.filter(vote='no').count(),
+            'abstain_votes': votes.filter(vote='abstain').count(),
+            'yes_weight': sum(vote.vote_weight for vote in votes.filter(vote='yes')),
+            'no_weight': sum(vote.vote_weight for vote in votes.filter(vote='no')),
+            'abstain_weight': sum(vote.vote_weight for vote in votes.filter(vote='abstain')),
+        }
+        
+        # Calculate approval percentage
+        if summary['total_weight'] > 0:
+            summary['approval_percentage'] = (summary['yes_weight'] / summary['total_weight']) * 100
+        else:
+            summary['approval_percentage'] = 0
+        
+        return summary

@@ -1,0 +1,58 @@
+{% comment %}
+Reusable Modal Component
+
+Usage:
+{% include 'components/modal.html' with modal_id='my-modal' modal_title='Modal Title' modal_size='md' %}
+
+Parameters:
+- modal_id: Unique ID for the modal (required)
+- modal_title: Title text for the modal header (optional)
+- modal_size: 'sm', 'md', 'lg', 'xl' (default: 'md')
+- modal_closable: Boolean, whether to show close button (default: true)
+- modal_backdrop_close: Boolean, whether clicking backdrop closes modal (default: true)
+{% endcomment %}
+
+{% with modal_size|default:'md' as size %}
+{% with modal_closable|default:true as closable %}
+{% with modal_backdrop_close|default:true as backdrop_close %}
+
+<div id="{{ modal_id }}" 
+     class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50"
+     {% if backdrop_close %}onclick="if(event.target === this) this.classList.add('hidden')"{% endif %}>
+    <div class="relative top-20 mx-auto p-5 border shadow-lg rounded-md bg-white
+                {% if size == 'sm' %}w-80
+                {% elif size == 'lg' %}w-128 max-w-4xl
+                {% elif size == 'xl' %}w-144 max-w-6xl
+                {% else %}w-96 max-w-lg
+                {% endif %}">
+        
+        {% if modal_title or closable %}
+            <div class="flex justify-between items-center mb-4">
+                {% if modal_title %}
+                    <h3 class="text-lg font-medium text-gray-900">{{ modal_title }}</h3>
+                {% else %}
+                    <div></div>
+                {% endif %}
+                
+                {% if closable %}
+                    <button type="button" 
+                            class="text-gray-400 hover:text-gray-600"
+                            onclick="document.getElementById('{{ modal_id }}').classList.add('hidden')">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                {% endif %}
+            </div>
+        {% endif %}
+        
+        <div id="{{ modal_id }}-content">
+            <!-- Content will be loaded here -->
+            {% block modal_content %}{% endblock %}
+        </div>
+    </div>
+</div>
+
+{% endwith %}
+{% endwith %}
+{% endwith %}

@@ -1,0 +1,378 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Interactive Features Demo - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900">Enhanced Interactivity Demo</h1>
+        <p class="mt-2 text-lg text-gray-600">
+            Showcase of advanced HTMX features, progressive enhancement, and interactive patterns.
+        </p>
+    </div>
+
+    <!-- Live Updates Demo -->
+    <div class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">Live Updates</h2>
+        {% include 'components/card.html' with card_title='Real-time Content Updates' %}
+            <div class="space-y-4">
+                <p class="text-gray-600">This section demonstrates real-time updates using Server-Sent Events (SSE).</p>
+                
+                <!-- Live Updates Component -->
+                {% include 'components/live_updates.html' with update_url='/demo/live-updates/' update_target='#live-content' %}
+                
+                <div id="live-content" class="p-4 bg-gray-50 rounded-md">
+                    <p class="text-sm text-gray-500">Live content will appear here...</p>
+                </div>
+                
+                <div class="flex space-x-3">
+                    {% include 'components/button.html' with btn_text='Simulate Update' btn_type='primary' btn_onclick="simulateLiveUpdate()" %}
+                    {% include 'components/button.html' with btn_text='Send Notification' btn_type='secondary' btn_onclick="sendTestNotification()" %}
+                </div>
+            </div>
+        {% endinclude %}
+    </div>
+
+    <!-- Enhanced Search & Filtering Demo -->
+    <div class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">Enhanced Search & Filtering</h2>
+        
+        <!-- Search Component with Advanced Filters -->
+        {% include 'components/search_filter.html' with search_url='/demo/search/' search_target='#search-results' filters=demo_filters show_advanced=true %}
+            {% block advanced_filters %}
+                <div>
+                    <label for="date_from" class="block text-sm font-medium text-gray-700">Date From</label>
+                    <input type="date" name="date_from" id="date_from" 
+                           class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="date_to" class="block text-sm font-medium text-gray-700">Date To</label>
+                    <input type="date" name="date_to" id="date_to" 
+                           class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="priority" class="block text-sm font-medium text-gray-700">Priority</label>
+                    <select name="priority" id="priority" 
+                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        <option value="">All Priorities</option>
+                        <option value="high">High</option>
+                        <option value="medium">Medium</option>
+                        <option value="low">Low</option>
+                    </select>
+                </div>
+            {% endblock %}
+        {% endinclude %}
+        
+        <div id="search-results" class="mt-6">
+            {% include 'components/card.html' with card_title='Search Results' %}
+                <p class="text-gray-500">Search results will appear here as you type...</p>
+            {% endinclude %}
+        </div>
+    </div>
+
+    <!-- Bulk Actions Demo -->
+    <div class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">Bulk Actions</h2>
+        
+        <!-- Bulk Actions Component -->
+        {% include 'components/bulk_actions.html' with actions=demo_bulk_actions target_url='/demo/bulk-actions/' %}
+        
+        <!-- Data Table with Selection -->
+        {% include 'components/data_table.html' with table_data=demo_data columns=demo_columns selectable=true selection_name='demo_items' table_id='demo-table' %}
+    </div>
+
+    <!-- Advanced Form Interactions -->
+    <div class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">Advanced Form Interactions</h2>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Auto-save Form -->
+            {% include 'components/card.html' with card_title='Auto-save Form' %}
+                {% include 'components/htmx_form.html' with form_action='/demo/auto-save/' form_target='#auto-save-status' form_trigger='change delay:2s' %}
+                    <div class="space-y-4">
+                        <div>
+                            <label for="title" class="block text-sm font-medium text-gray-700">Title</label>
+                            <input type="text" name="title" id="title" 
+                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                   placeholder="Enter title...">
+                        </div>
+                        
+                        <div>
+                            <label for="content" class="block text-sm font-medium text-gray-700">Content</label>
+                            <textarea name="content" id="content" rows="4"
+                                      class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                      placeholder="Enter content..."></textarea>
+                        </div>
+                        
+                        <div id="auto-save-status" class="text-sm text-gray-500">
+                            Changes will be saved automatically...
+                        </div>
+                    </div>
+                {% endinclude %}
+            {% endinclude %}
+
+            <!-- Dynamic Form Fields -->
+            {% include 'components/card.html' with card_title='Dynamic Form Fields' %}
+                <div x-data="dynamicForm()" class="space-y-4">
+                    <div>
+                        <label for="field_type" class="block text-sm font-medium text-gray-700">Field Type</label>
+                        <select x-model="fieldType" 
+                                @change="updateFormField()"
+                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            <option value="text">Text Input</option>
+                            <option value="number">Number Input</option>
+                            <option value="email">Email Input</option>
+                            <option value="select">Select Dropdown</option>
+                            <option value="checkbox">Checkbox</option>
+                            <option value="radio">Radio Buttons</option>
+                        </select>
+                    </div>
+                    
+                    <div id="dynamic-field" x-html="fieldHtml">
+                        <!-- Dynamic field will be inserted here -->
+                    </div>
+                    
+                    <div class="flex space-x-3">
+                        {% include 'components/button.html' with btn_text='Add Field' btn_type='primary' btn_onclick="addField()" %}
+                        {% include 'components/button.html' with btn_text='Clear Fields' btn_type='secondary' btn_onclick="clearFields()" %}
+                    </div>
+                </div>
+            {% endinclude %}
+        </div>
+    </div>
+
+    <!-- Progressive Enhancement Demo -->
+    <div class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">Progressive Enhancement</h2>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Basic to Enhanced -->
+            {% include 'components/card.html' with card_title='Image Gallery' %}
+                <div x-data="imageGallery()" class="space-y-4">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div x-for="(image, index) in images" x-key="index" 
+                             class="aspect-square bg-gray-200 rounded-lg overflow-hidden cursor-pointer"
+                             @click="openLightbox(index)">
+                            <img x-bind:src="image.thumb" 
+                                 x-bind:alt="image.title"
+                                 class="w-full h-full object-cover hover:scale-105 transition-transform">
+                        </div>
+                    </div>
+                    
+                    <!-- Lightbox (enhanced with Alpine.js) -->
+                    <div x-show="showLightbox" 
+                         x-transition
+                         class="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center"
+                         @click="closeLightbox()"
+                         @keydown.escape="closeLightbox()">
+                        <div class="max-w-4xl max-h-full p-4">
+                            <img x-bind:src="currentImage?.full" 
+                                 x-bind:alt="currentImage?.title"
+                                 class="max-w-full max-h-full object-contain">
+                        </div>
+                    </div>
+                </div>
+            {% endinclude %}
+
+            <!-- Infinite Scroll -->
+            {% include 'components/card.html' with card_title='Infinite Scroll' %}
+                <div class="space-y-4">
+                    <div id="infinite-list" 
+                         hx-get="/demo/infinite-scroll/"
+                         hx-trigger="revealed"
+                         hx-swap="beforeend"
+                         class="max-h-64 overflow-y-auto space-y-2">
+                        {% for i in "123456789"|make_list %}
+                            <div class="p-3 bg-gray-50 rounded-md">
+                                <p class="text-sm">Item {{ forloop.counter }}</p>
+                            </div>
+                        {% endfor %}
+                        
+                        <!-- Loading trigger -->
+                        <div class="text-center py-4 text-gray-500" 
+                             hx-get="/demo/infinite-scroll/?page=2"
+                             hx-trigger="revealed"
+                             hx-swap="afterend">
+                            Loading more...
+                        </div>
+                    </div>
+                </div>
+            {% endinclude %}
+
+            <!-- Keyboard Shortcuts -->
+            {% include 'components/card.html' with card_title='Keyboard Shortcuts' %}
+                <div class="space-y-3">
+                    <div class="text-sm">
+                        <kbd class="px-2 py-1 bg-gray-100 rounded text-xs">Ctrl+K</kbd>
+                        <span class="ml-2 text-gray-600">Focus search</span>
+                    </div>
+                    <div class="text-sm">
+                        <kbd class="px-2 py-1 bg-gray-100 rounded text-xs">Esc</kbd>
+                        <span class="ml-2 text-gray-600">Close modal</span>
+                    </div>
+                    <div class="text-sm">
+                        <kbd class="px-2 py-1 bg-gray-100 rounded text-xs">Ctrl+Enter</kbd>
+                        <span class="ml-2 text-gray-600">Submit form</span>
+                    </div>
+                    <div class="text-sm">
+                        <kbd class="px-2 py-1 bg-gray-100 rounded text-xs">?</kbd>
+                        <span class="ml-2 text-gray-600">Show help</span>
+                    </div>
+                    
+                    <button type="button"
+                            @click="KromrifUtils.showNotification('Try the keyboard shortcuts!', 'info')"
+                            class="mt-4 text-sm text-indigo-600 hover:text-indigo-800">
+                        Test shortcuts
+                    </button>
+                </div>
+            {% endinclude %}
+        </div>
+    </div>
+</div>
+
+<!-- Help Modal -->
+{% include 'components/modal.html' with modal_id='help-modal' modal_title='Keyboard Shortcuts' modal_size='md' %}
+    <div class="space-y-4">
+        <div class="grid grid-cols-1 gap-3">
+            <div class="flex justify-between">
+                <span class="text-sm text-gray-600">Focus search</span>
+                <kbd class="px-2 py-1 bg-gray-100 rounded text-xs">Ctrl + K</kbd>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-sm text-gray-600">Close modal</span>
+                <kbd class="px-2 py-1 bg-gray-100 rounded text-xs">Escape</kbd>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-sm text-gray-600">Submit form</span>
+                <kbd class="px-2 py-1 bg-gray-100 rounded text-xs">Ctrl + Enter</kbd>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-sm text-gray-600">Show this help</span>
+                <kbd class="px-2 py-1 bg-gray-100 rounded text-xs">?</kbd>
+            </div>
+        </div>
+    </div>
+{% endinclude %}
+{% endblock %}
+
+{% block extra_body %}
+<script>
+// Demo data and functionality
+document.addEventListener('DOMContentLoaded', function() {
+    // Add help shortcut
+    document.addEventListener('keydown', function(e) {
+        if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            KromrifUtils.openModal('help-modal');
+        }
+    });
+});
+
+// Simulate live update
+function simulateLiveUpdate() {
+    const updates = [
+        { type: 'update', content: '<p class="text-green-600">✓ Live update received at ' + new Date().toLocaleTimeString() + '</p>' },
+        { type: 'notification', message: 'Live update demonstration', level: 'success' }
+    ];
+    
+    const randomUpdate = updates[Math.floor(Math.random() * updates.length)];
+    
+    // Simulate receiving live update
+    const event = new CustomEvent('liveUpdate', { detail: randomUpdate });
+    document.dispatchEvent(event);
+}
+
+function sendTestNotification() {
+    const messages = [
+        'This is a test notification',
+        'Live updates are working!',
+        'Interactive features demo',
+        'Progressive enhancement in action'
+    ];
+    
+    const types = ['info', 'success', 'warning'];
+    const message = messages[Math.floor(Math.random() * messages.length)];
+    const type = types[Math.floor(Math.random() * types.length)];
+    
+    KromrifUtils.showNotification(message, type);
+}
+
+// Dynamic form functionality
+function dynamicForm() {
+    return {
+        fieldType: 'text',
+        fieldHtml: '<input type="text" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Text input">',
+        
+        updateFormField() {
+            const fields = {
+                text: '<input type="text" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Text input">',
+                number: '<input type="number" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Number input">',
+                email: '<input type="email" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Email input">',
+                select: '<select class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"><option>Option 1</option><option>Option 2</option><option>Option 3</option></select>',
+                checkbox: '<div class="flex items-center"><input type="checkbox" class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"><label class="ml-2 block text-sm text-gray-900">Checkbox option</label></div>',
+                radio: '<div class="space-y-2"><div class="flex items-center"><input type="radio" name="radio_demo" class="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"><label class="ml-2 block text-sm text-gray-900">Radio option 1</label></div><div class="flex items-center"><input type="radio" name="radio_demo" class="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"><label class="ml-2 block text-sm text-gray-900">Radio option 2</label></div></div>'
+            };
+            
+            this.fieldHtml = fields[this.fieldType] || fields.text;
+        }
+    }
+}
+
+// Image gallery functionality
+function imageGallery() {
+    return {
+        images: [
+            { thumb: 'https://via.placeholder.com/150', full: 'https://via.placeholder.com/800', title: 'Demo Image 1' },
+            { thumb: 'https://via.placeholder.com/150', full: 'https://via.placeholder.com/800', title: 'Demo Image 2' },
+            { thumb: 'https://via.placeholder.com/150', full: 'https://via.placeholder.com/800', title: 'Demo Image 3' },
+            { thumb: 'https://via.placeholder.com/150', full: 'https://via.placeholder.com/800', title: 'Demo Image 4' }
+        ],
+        showLightbox: false,
+        currentIndex: 0,
+        
+        get currentImage() {
+            return this.images[this.currentIndex];
+        },
+        
+        openLightbox(index) {
+            this.currentIndex = index;
+            this.showLightbox = true;
+            document.body.style.overflow = 'hidden';
+        },
+        
+        closeLightbox() {
+            this.showLightbox = false;
+            document.body.style.overflow = '';
+        }
+    }
+}
+
+// Demo data
+window.demoData = {
+    filters: [
+        { key: 'status', value: 'active', label: 'Active' },
+        { key: 'status', value: 'inactive', label: 'Inactive' },
+        { key: 'type', value: 'character', label: 'Characters' },
+        { key: 'type', value: 'raid', label: 'Raids' }
+    ],
+    bulkActions: [
+        { key: 'export', label: 'Export Selected', icon: 'download', primary: true },
+        { key: 'archive', label: 'Archive', icon: 'archive' },
+        { key: 'delete', label: 'Delete', icon: 'delete', dangerous: true }
+    ],
+    tableData: [
+        { id: 1, name: 'Krogar', type: 'Character', status: 'Active', created: '2024-01-15' },
+        { id: 2, name: 'Mystral', type: 'Character', status: 'Active', created: '2024-01-20' },
+        { id: 3, name: 'Shadowfax', type: 'Character', status: 'Inactive', created: '2024-01-25' }
+    ],
+    tableColumns: [
+        { key: 'name', label: 'Name', sortable: true },
+        { key: 'type', label: 'Type', type: 'badge' },
+        { key: 'status', label: 'Status', type: 'badge' },
+        { key: 'created', label: 'Created', type: 'date' }
+    ]
+};
+</script>
+{% endblock %}

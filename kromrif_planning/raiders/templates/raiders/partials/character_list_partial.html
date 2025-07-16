@@ -1,0 +1,160 @@
+{% load static %}
+
+<div class="bg-white shadow overflow-hidden sm:rounded-md">
+    {% if characters %}
+        <ul class="divide-y divide-gray-200">
+            {% for character in characters %}
+                <li class="px-6 py-4 hover:bg-gray-50 transition-colors duration-150">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <div class="h-10 w-10 rounded-full bg-indigo-500 flex items-center justify-center">
+                                    <span class="text-white font-medium">{{ character.name|first|upper }}</span>
+                                </div>
+                            </div>
+                            <div class="ml-4">
+                                <div class="flex items-center">
+                                    <h3 class="text-lg font-medium text-gray-900">
+                                        <a href="{% url 'raiders:character-detail' character.pk %}" 
+                                           class="hover:text-indigo-600">{{ character.name }}</a>
+                                    </h3>
+                                </div>
+                                <div class="flex items-center text-sm text-gray-500 mt-1">
+                                    <span class="font-medium">{{ character.character_class }}</span>
+                                    <span class="mx-2">•</span>
+                                    <span>Level {{ character.level }}</span>
+                                    <span class="mx-2">•</span>
+                                    <span>{{ character.user.name|default:character.user.username }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <!-- Status badge -->
+                            {% if character.status == 'active' %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    Active
+                                </span>
+                            {% elif character.status == 'inactive' %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                    Inactive
+                                </span>
+                            {% elif character.status == 'retired' %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                    Retired
+                                </span>
+                            {% endif %}
+                            
+                            <!-- Actions -->
+                            <div class="flex items-center space-x-1">
+                                <a href="{% url 'raiders:character-detail' character.pk %}" 
+                                   class="text-indigo-600 hover:text-indigo-900 text-sm font-medium">
+                                    View
+                                </a>
+                                {% if character.user == request.user or request.user.is_staff %}
+                                    <span class="text-gray-300">|</span>
+                                    <button type="button" 
+                                            class="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
+                                            hx-get="{% url 'raiders:character-edit-htmx' character.pk %}"
+                                            hx-target="#modal-content"
+                                            onclick="document.getElementById('modal').classList.remove('hidden')">
+                                        Edit
+                                    </button>
+                                    <span class="text-gray-300">|</span>
+                                    <button type="button" 
+                                            class="text-red-600 hover:text-red-900 text-sm font-medium"
+                                            hx-get="{% url 'raiders:character-delete-htmx' character.pk %}"
+                                            hx-target="#modal-content"
+                                            onclick="document.getElementById('modal').classList.remove('hidden')">
+                                        Delete
+                                    </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </li>
+            {% endfor %}
+        </ul>
+        
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+            <div class="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1 flex justify-between sm:hidden">
+                        {% if page_obj.has_previous %}
+                            <a href="?page={{ page_obj.previous_page_number }}" 
+                               class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                Previous
+                            </a>
+                        {% endif %}
+                        {% if page_obj.has_next %}
+                            <a href="?page={{ page_obj.next_page_number }}" 
+                               class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                Next
+                            </a>
+                        {% endif %}
+                    </div>
+                    <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                        <div>
+                            <p class="text-sm text-gray-700">
+                                Showing
+                                <span class="font-medium">{{ page_obj.start_index }}</span>
+                                to
+                                <span class="font-medium">{{ page_obj.end_index }}</span>
+                                of
+                                <span class="font-medium">{{ page_obj.paginator.count }}</span>
+                                results
+                            </p>
+                        </div>
+                        <div>
+                            <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                                {% if page_obj.has_previous %}
+                                    <a href="?page={{ page_obj.previous_page_number }}" 
+                                       class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                        Previous
+                                    </a>
+                                {% endif %}
+                                
+                                {% for num in page_obj.paginator.page_range %}
+                                    {% if page_obj.number == num %}
+                                        <span class="bg-indigo-50 border-indigo-500 text-indigo-600 relative inline-flex items-center px-4 py-2 border text-sm font-medium">
+                                            {{ num }}
+                                        </span>
+                                    {% else %}
+                                        <a href="?page={{ num }}" 
+                                           class="bg-white border-gray-300 text-gray-500 hover:bg-gray-50 relative inline-flex items-center px-4 py-2 border text-sm font-medium">
+                                            {{ num }}
+                                        </a>
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                {% if page_obj.has_next %}
+                                    <a href="?page={{ page_obj.next_page_number }}" 
+                                       class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                        Next
+                                    </a>
+                                {% endif %}
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    {% else %}
+        <div class="text-center py-12">
+            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+            </svg>
+            <h3 class="mt-2 text-sm font-medium text-gray-900">No characters found</h3>
+            <p class="mt-1 text-sm text-gray-500">Get started by creating a new character.</p>
+            <div class="mt-6">
+                <a href="{% url 'raiders:character-create' %}" 
+                   class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                    </svg>
+                    New Character
+                </a>
+            </div>
+        </div>
+    {% endif %}
+</div>

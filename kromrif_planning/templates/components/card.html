@@ -1,0 +1,139 @@
+{% comment %}
+Reusable Card Component
+
+Usage:
+{% include 'components/card.html' with card_title='My Card' card_padding='md' %}
+    <!-- Card content goes here -->
+{% endinclude %}
+
+Parameters:
+- card_title: Title for the card header (optional)
+- card_subtitle: Subtitle text (optional)
+- card_padding: 'none', 'sm', 'md', 'lg' (default: 'md')
+- card_shadow: 'none', 'sm', 'md', 'lg', 'xl' (default: 'md')
+- card_border: Boolean (default: false)
+- card_hover: Boolean, add hover effect (default: false)
+- card_header_actions: HTML for header action buttons (optional)
+- card_footer: HTML for footer content (optional)
+- card_full_height: Boolean (default: false)
+- card_clickable: Boolean, make entire card clickable (default: false)
+- card_href: URL if card is clickable (optional)
+- card_onclick: JavaScript onclick if card is clickable (optional)
+{% endcomment %}
+
+{% with card_padding|default:'md' as padding %}
+{% with card_shadow|default:'md' as shadow %}
+{% with card_border|default:false as border %}
+{% with card_hover|default:false as hover %}
+{% with card_full_height|default:false as full_height %}
+{% with card_clickable|default:false as clickable %}
+
+{% comment %} Build CSS classes {% endcomment %}
+{% with 'bg-white rounded-lg overflow-hidden' as base_classes %}
+
+{% comment %} Shadow classes {% endcomment %}
+{% if shadow == 'none' %}
+    {% with '' as shadow_classes %}
+{% elif shadow == 'sm' %}
+    {% with 'shadow-sm' as shadow_classes %}
+{% elif shadow == 'lg' %}
+    {% with 'shadow-lg' as shadow_classes %}
+{% elif shadow == 'xl' %}
+    {% with 'shadow-xl' as shadow_classes %}
+{% else %}
+    {% with 'shadow' as shadow_classes %}
+{% endif %}
+
+{% comment %} Border classes {% endcomment %}
+{% if border %}
+    {% with 'border border-gray-200' as border_classes %}
+{% else %}
+    {% with '' as border_classes %}
+{% endif %}
+
+{% comment %} Hover classes {% endcomment %}
+{% if hover %}
+    {% with 'hover:shadow-lg transition-shadow duration-200' as hover_classes %}
+{% else %}
+    {% with '' as hover_classes %}
+{% endif %}
+
+{% comment %} Height classes {% endcomment %}
+{% if full_height %}
+    {% with 'h-full' as height_classes %}
+{% else %}
+    {% with '' as height_classes %}
+{% endif %}
+
+{% comment %} Clickable classes {% endcomment %}
+{% if clickable %}
+    {% with 'cursor-pointer' as clickable_classes %}
+{% else %}
+    {% with '' as clickable_classes %}
+{% endif %}
+
+{% comment %} Render card {% endcomment %}
+{% if clickable and card_href %}
+    <a href="{{ card_href }}" 
+       class="{{ base_classes }} {{ shadow_classes }} {{ border_classes }} {{ hover_classes }} {{ height_classes }} {{ clickable_classes }}"
+       {% if card_onclick %}onclick="{{ card_onclick }}"{% endif %}>
+{% elif clickable and card_onclick %}
+    <div class="{{ base_classes }} {{ shadow_classes }} {{ border_classes }} {{ hover_classes }} {{ height_classes }} {{ clickable_classes }}"
+         onclick="{{ card_onclick }}">
+{% else %}
+    <div class="{{ base_classes }} {{ shadow_classes }} {{ border_classes }} {{ hover_classes }} {{ height_classes }}">
+{% endif %}
+
+    {% comment %} Card Header {% endcomment %}
+    {% if card_title or card_subtitle or card_header_actions %}
+        <div class="{% if padding == 'none' %}px-6 py-4{% elif padding == 'sm' %}px-4 py-3{% elif padding == 'lg' %}px-8 py-6{% else %}px-6 py-4{% endif %} border-b border-gray-200">
+            <div class="flex justify-between items-start">
+                <div>
+                    {% if card_title %}
+                        <h3 class="text-lg font-medium text-gray-900">{{ card_title }}</h3>
+                    {% endif %}
+                    {% if card_subtitle %}
+                        <p class="{% if card_title %}mt-1 {% endif %}text-sm text-gray-500">{{ card_subtitle }}</p>
+                    {% endif %}
+                </div>
+                {% if card_header_actions %}
+                    <div class="ml-4 flex-shrink-0">
+                        {{ card_header_actions|safe }}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+
+    {% comment %} Card Body {% endcomment %}
+    <div class="{% if padding == 'none' %}{% elif padding == 'sm' %}p-4{% elif padding == 'lg' %}p-8{% else %}p-6{% endif %}">
+        {% block card_content %}
+            <!-- Card content will be inserted here -->
+        {% endblock %}
+    </div>
+
+    {% comment %} Card Footer {% endcomment %}
+    {% if card_footer %}
+        <div class="{% if padding == 'none' %}px-6 py-4{% elif padding == 'sm' %}px-4 py-3{% elif padding == 'lg' %}px-8 py-6{% else %}px-6 py-4{% endif %} border-t border-gray-200 bg-gray-50">
+            {{ card_footer|safe }}
+        </div>
+    {% endif %}
+
+{% if clickable %}
+    {% if card_href %}</a>{% else %}</div>{% endif %}
+{% else %}
+    </div>
+{% endif %}
+
+{% endwith %} {# clickable_classes #}
+{% endwith %} {# height_classes #}
+{% endwith %} {# hover_classes #}
+{% endwith %} {# border_classes #}
+{% endwith %} {# shadow_classes #}
+{% endwith %} {# base_classes #}
+{% endwith %} {# clickable #}
+{% endwith %} {# full_height #}
+{% endwith %} {# hover #}
+{% endwith %} {# border #}
+{% endwith %} {# shadow #}
+{% endwith %} {# padding #}

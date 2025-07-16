@@ -1,0 +1,73 @@
+{% load static %}
+
+<form hx-post="{{ action_url }}" hx-swap="outerHTML" class="space-y-4">
+    {% csrf_token %}
+    
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+            <label for="{{ form.name.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                Name <span class="text-red-500">*</span>
+            </label>
+            {{ form.name }}
+            {% if form.name.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.name.errors.0 }}</p>
+            {% endif %}
+        </div>
+        
+        <div>
+            <label for="{{ form.character_class.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                Class <span class="text-red-500">*</span>
+            </label>
+            {{ form.character_class }}
+            {% if form.character_class.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.character_class.errors.0 }}</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+            <label for="{{ form.level.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                Level <span class="text-red-500">*</span>
+            </label>
+            {{ form.level }}
+            {% if form.level.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.level.errors.0 }}</p>
+            {% endif %}
+        </div>
+        
+        <div>
+            <label for="{{ form.status.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                Status <span class="text-red-500">*</span>
+            </label>
+            {{ form.status }}
+            {% if form.status.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.status.errors.0 }}</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    
+    <div>
+        <label for="{{ form.description.id_for_label }}" class="block text-sm font-medium text-gray-700">
+            Description
+        </label>
+        {{ form.description }}
+        {% if form.description.errors %}
+            <p class="mt-1 text-sm text-red-600">{{ form.description.errors.0 }}</p>
+        {% endif %}
+    </div>
+    
+    <!-- Form Actions -->
+    <div class="flex justify-end space-x-3 pt-4">
+        <button type="button" 
+                class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                onclick="document.getElementById('modal').classList.add('hidden')">
+            Cancel
+        </button>
+        <button type="submit" 
+                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+            {% if character %}Update Character{% else %}Create Character{% endif %}
+        </button>
+    </div>
+</form>
