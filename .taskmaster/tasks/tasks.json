@@ -376,7 +376,7 @@
         "id": 7,
         "title": "Multi-Period Attendance Tracking System",
         "description": "Implement 30/60/90 day rolling averages and lifetime attendance statistics",
-        "details": "Create MemberAttendanceSummary model with 30/60/90 day percentages and lifetime stats. Implement Django management command for daily attendance calculations. Create DRF API endpoints for attendance queries and leaderboards. Set up efficient database queries with proper indexing. Implement attendance-based voting eligibility (\u226515% in 30 days).",
+        "details": "Create MemberAttendanceSummary model with 30/60/90 day percentages and lifetime stats. Implement Django management command for daily attendance calculations. Create DRF API endpoints for attendance queries and leaderboards. Set up efficient database queries with proper indexing. Implement attendance-based voting eligibility (≥15% in 30 days).",
         "testStrategy": "Test attendance calculations are accurate across all time periods and voting eligibility correctly identifies qualified members",
         "priority": "medium",
         "dependencies": [
@@ -666,8 +666,8 @@
           4
         ],
         "priority": "medium",
-        "details": "\u2705 COMPLETED: Tailwind CSS static file compilation issues have been resolved. The django-tailwind setup is now fully working with npm dependencies installed, CSS properly compiled to theme/static/css/dist/styles.css, and 404 errors resolved. The website now loads with proper Tailwind styling including responsive design, component library integration, and all template classes (cards, navigation, messages, etc.).\n\nNEXT PHASES:\nPhase 2: Character Management UI - Implement responsive list views, detailed character cards, and HTMX-powered create/edit forms building on the now-working Tailwind foundation.\nPhase 3: Guild Roster dashboard with rank management interface, member search/filtering, and real-time updates via HTMX.\nPhase 4: Reusable component library including HTMX-enhanced forms, modal dialogs, toast notifications, and loading states.\nPhase 5: Enhanced interactivity with progressive enhancement, smooth transitions, and optimistic UI updates.\n\nEnsure all templates continue to follow established patterns with proper CSRF handling, role-based styling, and Alpine.js integration for lightweight interactions.",
-        "testStrategy": "\u2705 VERIFIED: Tailwind CSS static files compile correctly and load without 404 errors. Test user detail page routing resolves properly. Next: Validate character management forms work with HTMX for create/read/update/delete operations. Confirm guild roster dashboard displays properly with filtering and search functionality. Test component library elements render consistently across different screen sizes. Verify progressive enhancement works with and without JavaScript enabled. Test role-based UI elements display correctly for different user types.",
+        "details": "✅ COMPLETED: Tailwind CSS static file compilation issues have been resolved. The django-tailwind setup is now fully working with npm dependencies installed, CSS properly compiled to theme/static/css/dist/styles.css, and 404 errors resolved. The website now loads with proper Tailwind styling including responsive design, component library integration, and all template classes (cards, navigation, messages, etc.).\n\nNEXT PHASES:\nPhase 2: Character Management UI - Implement responsive list views, detailed character cards, and HTMX-powered create/edit forms building on the now-working Tailwind foundation.\nPhase 3: Guild Roster dashboard with rank management interface, member search/filtering, and real-time updates via HTMX.\nPhase 4: Reusable component library including HTMX-enhanced forms, modal dialogs, toast notifications, and loading states.\nPhase 5: Enhanced interactivity with progressive enhancement, smooth transitions, and optimistic UI updates.\n\nEnsure all templates continue to follow established patterns with proper CSRF handling, role-based styling, and Alpine.js integration for lightweight interactions.",
+        "testStrategy": "✅ VERIFIED: Tailwind CSS static files compile correctly and load without 404 errors. Test user detail page routing resolves properly. Next: Validate character management forms work with HTMX for create/read/update/delete operations. Confirm guild roster dashboard displays properly with filtering and search functionality. Test component library elements render consistently across different screen sizes. Verify progressive enhancement works with and without JavaScript enabled. Test role-based UI elements display correctly for different user types.",
         "subtasks": [
           {
             "id": 1,
@@ -706,11 +706,140 @@
             "testStrategy": "Test functionality works with and without JavaScript, verify smooth transitions enhance user experience, confirm optimistic updates work correctly, validate graceful degradation"
           }
         ]
+      },
+      {
+        "id": 12,
+        "title": "Dependency Security Audit and Vulnerability Resolution",
+        "description": "Conduct comprehensive audit of all Python dependencies for known vulnerabilities and update to secure versions",
+        "details": "Install and run pip-audit to scan for vulnerabilities: `pip install pip-audit && pip-audit`. Review vulnerability report and update affected packages using `pip install --upgrade package-name`. Create requirements-security.txt with pinned secure versions. Set up automated dependency scanning in CI/CD pipeline using tools like Safety or Snyk. Document all changes and create dependency update schedule.",
+        "testStrategy": "Run pip-audit scan before and after updates to verify clean results. Test application functionality after each dependency update. Create automated tests that fail if high/critical vulnerabilities are detected. Verify CI/CD pipeline properly scans dependencies on each commit.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 13,
+        "title": "API Rate Limiting Implementation",
+        "description": "Implement comprehensive rate limiting across all API endpoints using Django REST Framework throttling",
+        "details": "Configure DRF throttling in settings.py with different rates for authenticated (100/hour) vs anonymous (20/hour) users. Add throttling classes to all API views: AnonRateThrottle, UserRateThrottle. Implement stricter rate limiting for authentication endpoints (5/minute for login attempts). Add custom throttling for bulk operations. Configure Redis/Memcached for distributed rate limiting. Add monitoring for rate limit violations using Django logging.",
+        "testStrategy": "Create automated tests that verify rate limits are enforced for each endpoint type. Test brute force protection on authentication endpoints. Verify different rate limits for authenticated vs anonymous users. Load test to ensure rate limiting doesn't impact legitimate usage. Test rate limit headers are properly returned.",
+        "priority": "high",
+        "dependencies": [
+          12
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 14,
+        "title": "CORS Security Configuration",
+        "description": "Configure secure CORS settings for production deployment with explicit allowed origins",
+        "details": "Update CORS_ALLOWED_ORIGINS in settings.py to include only production domains. Remove CORS_ALLOW_ALL_ORIGINS = True. Configure CORS_ALLOWED_HEADERS and CORS_ALLOWED_METHODS explicitly. Set CORS_ALLOW_CREDENTIALS = True for authenticated requests. Add environment-specific CORS configuration. Implement proper CORS preflight handling for complex requests.",
+        "testStrategy": "Test CORS configuration with frontend application in staging environment. Verify preflight requests work correctly. Test that unauthorized origins are blocked. Create automated tests for CORS header validation. Verify credentials are properly handled in cross-origin requests.",
+        "priority": "high",
+        "dependencies": [
+          12
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 15,
+        "title": "API Input Validation Enhancement",
+        "description": "Strengthen input validation and sanitization across all API endpoints and serializers",
+        "details": "Review all DRF serializers for comprehensive field validation. Add custom validators for complex business logic. Implement input sanitization using bleach library for text fields. Add validation for bulk operations and nested serializers. Implement proper error handling that doesn't leak sensitive information. Add request size limits and file upload validation. Use Django's built-in validation and add custom validators where needed.",
+        "testStrategy": "Create comprehensive test suite for input validation covering edge cases, malformed data, and boundary conditions. Test bulk operations with invalid data. Verify error messages don't expose sensitive information. Test file upload validation and size limits. Perform fuzzing tests on API endpoints.",
+        "priority": "medium",
+        "dependencies": [
+          13
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 16,
+        "title": "External Resource Security with SRI",
+        "description": "Implement Subresource Integrity (SRI) for external resources and Content Security Policy headers",
+        "details": "Generate SRI hashes for all external JavaScript and CSS resources using tools like srihash.org. Add integrity attributes to all external script and link tags. Implement Content Security Policy (CSP) headers using django-csp middleware. Configure CSP directives for script-src, style-src, and img-src. Consider self-hosting critical JavaScript libraries. Add fallback mechanisms for CDN failures.",
+        "testStrategy": "Verify all external resources load correctly with SRI hashes. Test CSP headers block unauthorized resource loading. Create automated tests that verify SRI hashes are present and valid. Test fallback mechanisms when CDN resources fail. Validate CSP policy effectiveness using browser security tools.",
+        "priority": "medium",
+        "dependencies": [
+          14
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 17,
+        "title": "Admin Interface Security Hardening",
+        "description": "Secure Django admin interface with URL obfuscation and enhanced authentication measures",
+        "details": "Change admin URL from /admin/ to a non-standard path in urls.py. Implement additional admin authentication middleware. Add admin activity logging using django-admin-log. Review and restrict admin permissions by user groups. Consider implementing two-factor authentication for admin access. Add IP whitelisting for admin access if feasible.",
+        "testStrategy": "Verify admin interface is inaccessible at standard URL. Test admin activity logging captures all actions. Verify admin permissions are properly restricted. Test additional authentication measures work correctly. Create tests for admin access controls and logging functionality.",
+        "priority": "medium",
+        "dependencies": [
+          15
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 18,
+        "title": "Security Monitoring Implementation",
+        "description": "Implement comprehensive security event logging and monitoring system",
+        "details": "Configure Django logging to capture security events (failed logins, rate limit violations, suspicious activity). Implement custom middleware for security event detection. Add failed authentication attempt monitoring and alerting. Create security monitoring dashboard using tools like Grafana or Django admin. Configure log rotation and retention policies. Implement alerting for critical security events.",
+        "testStrategy": "Test security event logging captures all relevant events. Verify failed login monitoring works correctly. Test alerting system triggers on suspicious activity. Create automated tests for security monitoring functionality. Verify log rotation and retention policies work as expected.",
+        "priority": "low",
+        "dependencies": [
+          16
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 19,
+        "title": "Secrets Management Security Review",
+        "description": "Review and improve secrets management practices and implement rotation procedures",
+        "details": "Audit codebase for hardcoded secrets using tools like truffleHog or git-secrets. Move all secrets to environment variables or secret management service. Implement secrets rotation procedures for database passwords, API keys, and JWT secrets. Add secrets scanning to CI/CD pipeline. Document secrets management procedures and create rotation schedule. Consider using tools like Django-environ or HashiCorp Vault.",
+        "testStrategy": "Run secrets scanning tools to verify no hardcoded secrets remain. Test secrets rotation procedures don't break application functionality. Verify CI/CD pipeline fails when secrets are detected. Test environment variable loading and validation. Create automated tests for secrets management functionality.",
+        "priority": "low",
+        "dependencies": [
+          17
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 20,
+        "title": "Security Testing Suite Implementation",
+        "description": "Create comprehensive security testing suite covering all implemented security measures",
+        "details": "Implement unit tests for all security-related functionality including rate limiting, input validation, and authentication. Create integration tests for API security features. Add automated security tests to CI/CD pipeline. Implement API security tests using tools like OWASP ZAP or custom test scripts. Create performance tests to ensure security measures don't impact application performance significantly.",
+        "testStrategy": "Verify all security tests pass consistently. Test that security test failures properly block deployment. Validate test coverage includes all security features. Run security tests in CI/CD pipeline and verify they catch regressions. Perform manual security testing to validate automated test effectiveness.",
+        "priority": "medium",
+        "dependencies": [
+          18
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 21,
+        "title": "Security Documentation and Compliance Verification",
+        "description": "Create comprehensive security documentation and verify OWASP compliance",
+        "details": "Document all security configurations and procedures. Create incident response procedures and security runbooks. Document dependency management and update procedures. Verify application compliance with OWASP Top 10 security standards. Create security training materials for development team. Schedule regular security audits and penetration testing. Document security monitoring and alerting procedures.",
+        "testStrategy": "Review documentation completeness and accuracy. Test incident response procedures with simulated security events. Verify compliance verification covers all OWASP Top 10 categories. Test that security procedures are actionable and comprehensive. Create checklist for regular security audit compliance.",
+        "priority": "medium",
+        "dependencies": [
+          19,
+          20
+        ],
+        "status": "pending",
+        "subtasks": []
       }
     ],
     "metadata": {
       "created": "2025-06-29T19:52:01.977Z",
-      "updated": "2025-07-14T16:14:54.770Z",
+      "updated": "2025-07-16T06:15:17.126Z",
       "description": "Tasks for master context"
     }
   }
