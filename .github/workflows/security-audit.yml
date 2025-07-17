@@ -1,0 +1,56 @@
+name: Security Audit
+
+on:
+  push:
+    branches: [ main, django ]
+  pull_request:
+    branches: [ main, django ]
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+jobs:
+  security-audit:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements/local.txt
+        pip install -r requirements/security.txt
+        
+    - name: Run pip-audit
+      run: |
+        pip-audit --format=json --output=security-audit-report.json
+        
+    - name: Run safety scan
+      run: |
+        safety scan
+        
+    - name: Upload security report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: security-audit-report
+        path: security-audit-report.json
+        
+    - name: Fail on vulnerabilities
+      run: |
+        # This step will fail the workflow if vulnerabilities were found
+        pip-audit --exit-code
+        
+  dependency-review:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Dependency Review
+      uses: actions/dependency-review-action@v4 

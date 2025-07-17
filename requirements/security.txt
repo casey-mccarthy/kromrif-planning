@@ -1,0 +1,7 @@
+# Security scanning and audit tools
+# These tools are used for dependency vulnerability scanning and security auditing
+
+pip-audit==2.9.0  # https://github.com/pypa/pip-audit
+safety==3.6.0  # https://github.com/pyupio/safety
+
+# Additional security dependencies will be added here as needed 
